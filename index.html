@@ -1,3 +1,468 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Habit & Focus Tracker</title>
+    
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --border-color: #eee;
+            --header-bg: #ffffff;
+            --tab-bg: #ffffff;
+            --modal-bg: #ffffff;
+            --icon-default: #95a5a6;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* Dark Mode Variables */
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-primary: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --border-color: #333;
+            --header-bg: #1e1e1e;
+            --tab-bg: #1e1e1e;
+            --modal-bg: #2c2c2c;
+            --icon-default: #555;
+        }
+
+        /* Retro Mode Variables */
+        [data-theme="retro"] {
+            --bg-color: #fbf8f1;
+            --card-bg: #fff0f5;
+            --text-primary: #5e4b56;
+            --text-secondary: #9c8994;
+            --border-color: #e6dce3;
+            --header-bg: #fff0f5;
+            --tab-bg: #fff0f5;
+            --modal-bg: #fff0f5;
+            --icon-default: #d4c1cc;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- Layout --- */
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+
+        .header {
+            padding: 15px;
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            z-index: 10;
+        }
+
+        .scroll-view {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        .tab-bar {
+            height: 60px;
+            background-color: var(--tab-bg);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: row;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+            color: var(--icon-default);
+        }
+
+        .tab-item.active {
+            color: var(--text-primary);
+        }
+
+        .tab-text {
+            font-size: 10px;
+            margin-top: 4px;
+        }
+
+        /* --- Components --- */
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.1s;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .habit-title {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .category-tag {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            color: white;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 4px;
+        }
+
+        .streak-info {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .mode-switcher {
+            display: flex;
+            background-color: rgba(0,0,0,0.05);
+            border-radius: 8px;
+            padding: 2px;
+            margin-bottom: 15px;
+        }
+
+        .mode-tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #7f8c8d;
+        }
+
+        .timer-display {
+            font-size: 40px;
+            font-weight: 300;
+            text-align: center;
+            margin: 10px 0;
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+        }
+
+        .timer-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .arrow-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background-color: rgba(255,255,255,0.5);
+            font-size: 20px;
+        }
+
+        .action-btn {
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .fab {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 30px;
+            background-color: var(--text-primary);
+            color: var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            cursor: pointer;
+            z-index: 100;
+        }
+
+        .manual-link {
+            text-align: center;
+            margin-top: 10px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        /* --- Sign Up / Onboarding --- */
+        #signup-view {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            background-color: var(--bg-color);
+            padding: 20px;
+        }
+
+        .signup-card {
+            width: 100%;
+            max-width: 350px;
+            background-color: var(--card-bg);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        }
+
+        .carousel-container {
+            width: 100%;
+            height: 340px;
+            overflow-x: auto;
+            display: flex;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .carousel-container::-webkit-scrollbar {
+            display: none; 
+        }
+
+        .slide {
+            min-width: 100%;
+            scroll-snap-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .slide-hero {
+            width: 90%;
+            height: 60%;
+            margin-top: 12px;
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .floating-icon-bg {
+            width: 180px;
+            height: 180px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .slide-content {
+            padding: 0 15px;
+            text-align: center;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: -30px;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 5;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 3px;
+            background-color: rgba(0,0,0,0.1);
+            margin: 0 3px;
+            transition: background-color 0.3s;
+        }
+
+        .dot.active {
+            background-color: var(--text-primary);
+        }
+
+        .form-section {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .toggle-link {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        /* --- Modals --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background-color: var(--modal-bg);
+            padding: 25px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 350px;
+        }
+
+        .color-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 15px 0;
+        }
+
+        .color-circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .color-circle.selected {
+            border: 3px solid #333;
+        }
+
+        .modal-btns {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        
+        /* Stats Bars */
+        .bar-container {
+            margin-bottom: 15px;
+        }
+        .bar-bg {
+            height: 10px;
+            border-radius: 5px;
+            background-color: rgba(0,0,0,0.05);
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 5px;
+        }
+        
+        .cat-scroll {
+            display: flex;
+            overflow-x: auto;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+        }
+        .cat-chip {
+            padding: 5px 10px;
+            border-radius: 15px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+    </style>
 <script type="importmap">
 {
   "imports": {
@@ -6,9 +471,639 @@
     "react": "https://aistudiocdn.com/react@^19.2.1",
     "react-native": "https://aistudiocdn.com/react-native@^0.82.1",
     "@expo/vector-icons": "https://aistudiocdn.com/@expo/vector-icons@^15.0.3",
-    "expo-camera": "https://aistudiocdn.com/expo-camera@^17.0.10",
     "react-native-draggable-flatlist": "https://aistudiocdn.com/react-native-draggable-flatlist@^4.0.3",
+    "expo-camera": "https://aistudiocdn.com/expo-camera@^17.0.10",
     "react/": "https://aistudiocdn.com/react@^19.2.1/"
   }
 }
 </script>
+</head>
+<body>
+
+    <div id="app"></div>
+
+    <!-- MAIN SCRIPT -->
+    <script>
+        // --- CONSTANTS & DATA ---
+        const COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#1abc9c', '#34495e'];
+        
+        const THEMES = [
+            { id: 'light', name: 'Standard (Ljus)' },
+            { id: 'dark', name: 'Cyberpunk (Mörk)' },
+            { id: 'retro', name: 'Retro (Pastell)' }
+        ];
+
+        const ONBOARDING_SLIDES = [
+            { id: '1', title: 'Spåra Vanor', desc: 'Skapa rutiner som håller i längden.', icon: 'checkmark-done-circle', color: '#3498db', bgColor: '#e8f4fd' },
+            { id: '2', title: 'Håll Fokus', desc: 'Använd vår timer för att jobba effektivt.', icon: 'hourglass', color: '#e74c3c', bgColor: '#fdecec' },
+            { id: '3', title: 'Nå dina mål', desc: 'Samla statistik och se din utveckling.', icon: 'trending-up', color: '#f1c40f', bgColor: '#fef9e6' }
+        ];
+
+        // "Database"
+        const USERS_DB = {};
+        
+        // --- STATE ---
+        let state = {
+            isLoggedIn: false,
+            currentUser: null,
+            isSignUpMode: true,
+            activeSlide: 0,
+            currentTab: 'tracker',
+            currentTheme: 'light',
+            habits: [],
+            history: [],
+            goals: [],
+            
+            // Auth Form
+            authName: '', authPass: '', authEmail: '', authFullName: '', authAge: '',
+            
+            // Modal States
+            showAddModal: false, showManualModal: false, showAdjustModal: false, showGoalModal: false,
+            
+            // Temporary Edit Data
+            newHabitName: '', newHabitCategory: '', newHabitColor: COLORS[0],
+            manualHabitId: null, manualDate: '', manualMinutes: '',
+            goalHabitId: null, goalTarget: '', goalPeriod: 'daily', goalStart: '', goalEnd: '',
+            
+            // Stats
+            statsFilter: 'all', chartType: 'bar'
+        };
+
+        let timerInterval = null;
+
+        // --- UTILS ---
+        function getCategoryColor(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+            return '#' + "00000".substring(0, 6 - c.length) + c;
+        }
+
+        function tintColor(hex, opacity, themeId) {
+            hex = hex.replace('#', '');
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            const mix = themeId === 'dark' ? 30 : 255;
+            const nr = Math.round(r * (1 - opacity) + mix * opacity);
+            const ng = Math.round(g * (1 - opacity) + mix * opacity);
+            const nb = Math.round(b * (1 - opacity) + mix * opacity);
+            return `rgb(${nr}, ${ng}, ${nb})`;
+        }
+
+        function formatTime(s) {
+            const abs = Math.abs(s);
+            const mins = Math.floor((abs % 3600) / 60);
+            const secs = abs % 60;
+            const hrs = Math.floor(abs / 3600);
+            const t = hrs > 0 
+                ? `${hrs}:${mins<10?'0':''}${mins}:${secs<10?'0':''}${secs}`
+                : `${mins<10?'0':''}${mins}:${secs<10?'0':''}${secs}`;
+            return s < 0 ? `-${t}` : t;
+        }
+
+        function getTodayString() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+
+        // --- CORE LOGIC ---
+        function saveSession(name, duration, mode, color, timestamp = Date.now()) {
+            if (duration === 0) return;
+            const dateStr = getTodayString();
+            
+            // Update habit streak
+            state.habits = state.habits.map(h => {
+                if (h.name === name) {
+                    const newStreak = h.lastLogDate === dateStr ? h.streak : h.streak + 1;
+                    return { ...h, streak: newStreak, lastLogDate: dateStr };
+                }
+                return h;
+            });
+
+            state.history.unshift({
+                id: Date.now() + Math.random(),
+                habitName: name,
+                duration,
+                mode,
+                timestampStr: new Date(timestamp).toLocaleString(),
+                timestampMs: timestamp,
+                color
+            });
+            persistUser();
+            render();
+        }
+
+        function persistUser() {
+            if (state.currentUser && USERS_DB[state.currentUser]) {
+                USERS_DB[state.currentUser].data = {
+                    habits: state.habits,
+                    history: state.history,
+                    goals: state.goals,
+                    themeId: state.currentTheme
+                };
+            }
+        }
+
+        // --- AUTH ---
+        function handleAuth() {
+            const username = state.authName.trim().toLowerCase();
+            const password = state.authPass.trim();
+            
+            if (!username || !password) { alert("Fyll i användarnamn och lösenord"); return; }
+
+            if (state.isSignUpMode) {
+                if (USERS_DB[username]) { alert("Användarnamnet upptaget"); return; }
+                USERS_DB[username] = {
+                    auth: { username, password, fullName: state.authFullName, age: state.authAge, email: state.authEmail },
+                    data: { habits: [], history: [], goals: [], themeId: 'light' }
+                };
+            } else {
+                const user = USERS_DB[username];
+                if (!user || user.auth.password !== password) { alert("Fel inloggning"); return; }
+            }
+            
+            // Login success
+            const user = USERS_DB[username];
+            state.currentUser = username;
+            state.habits = user.data.habits || [];
+            state.history = user.data.history || [];
+            state.goals = user.data.goals || [];
+            state.currentTheme = user.data.themeId || 'light';
+            state.isLoggedIn = true;
+            state.currentTab = 'tracker';
+            applyTheme(state.currentTheme);
+            render();
+        }
+
+        function handleLogout() {
+            persistUser();
+            state.isLoggedIn = false;
+            state.currentUser = null;
+            state.authName = ''; state.authPass = ''; 
+            state.habits = []; state.history = []; state.goals = [];
+            state.currentTheme = 'light';
+            applyTheme('light');
+            render();
+        }
+
+        // --- TIMER LOOP ---
+        setInterval(() => {
+            if (!state.isLoggedIn) return;
+            let needsRender = false;
+            
+            state.habits = state.habits.map(h => {
+                if (h.isRunning) {
+                    needsRender = true; // Simple trigger, could be optimized to direct DOM update
+                    if (h.selectedMode === 'timer') {
+                        const total = h.elapsed + 1;
+                        if (total >= h.timerDuration) return { ...h, isRunning: false, elapsed: 0 };
+                        return { ...h, elapsed: total };
+                    }
+                    return { ...h, elapsed: h.elapsed + 1 };
+                }
+                return h;
+            });
+
+            // Direct DOM update optimization to avoid full re-render flickering
+            state.habits.forEach(h => {
+                const el = document.getElementById(`timer-${h.id}`);
+                const bar = document.getElementById(`bar-${h.id}`);
+                const btn = document.getElementById(`btn-${h.id}`);
+                
+                if (h.isRunning && el) {
+                    let text = formatTime(h.elapsed);
+                    if (h.selectedMode === 'timer') text = formatTime(Math.max(0, h.timerDuration - h.elapsed));
+                    el.innerText = text;
+                    if (btn) {
+                        btn.style.backgroundColor = '#e74c3c';
+                        btn.innerText = 'AVSLUTA';
+                    }
+                }
+            });
+
+        }, 1000);
+
+        // --- HABIT ACTIONS ---
+        function toggleHabit(id) {
+            state.habits = state.habits.map(h => {
+                if (h.id === id) {
+                    if (h.isRunning) {
+                        saveSession(h.name, h.elapsed, h.selectedMode, h.color);
+                        return { ...h, isRunning: false, elapsed: 0 };
+                    } else {
+                        let dur = h.timerDuration;
+                        if (h.selectedMode === 'timer') {
+                            const mins = parseInt(h.timerInput) || 1;
+                            dur = mins * 60;
+                        }
+                        return { ...h, isRunning: true, timerDuration: dur };
+                    }
+                }
+                return h;
+            });
+            render();
+        }
+
+        function deleteHabit(id) {
+            if(confirm("Ta bort vana?")) {
+                state.habits = state.habits.filter(h => h.id !== id);
+                state.goals = state.goals.filter(g => g.habitId !== id);
+                persistUser();
+                render();
+            }
+        }
+
+        function addHabit() {
+            if (!state.newHabitName) return;
+            const newH = {
+                id: Date.now().toString(),
+                name: state.newHabitName,
+                category: state.newHabitCategory,
+                color: state.newHabitColor,
+                selectedMode: 'stopwatch',
+                timerDuration: 60,
+                timerInput: '1',
+                elapsed: 0,
+                isRunning: false,
+                streak: 0,
+                lastLogDate: ''
+            };
+            state.habits.unshift(newH);
+            state.showAddModal = false;
+            state.newHabitName = ''; state.newHabitCategory = '';
+            persistUser();
+            render();
+        }
+
+        function applyTheme(id) {
+            document.body.setAttribute('data-theme', id);
+        }
+
+        // --- RENDER FUNCTIONS ---
+
+        function renderSignUp() {
+            const activeColor = ONBOARDING_SLIDES[state.activeSlide].color;
+            const slidesHtml = ONBOARDING_SLIDES.map(slide => `
+                <div class="slide">
+                    <div class="slide-hero" style="background-color: ${slide.bgColor}">
+                        <div class="floating-icon-bg">
+                            <ion-icon name="${slide.icon}" style="font-size: 90px; color: ${slide.color}"></ion-icon>
+                        </div>
+                    </div>
+                    <div class="slide-content">
+                        <h2 style="margin:5px 0; color:var(--text-primary)">${slide.title}</h2>
+                        <p style="color:var(--text-secondary)">${slide.desc}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            const dotsHtml = ONBOARDING_SLIDES.map((_, i) => 
+                `<div class="dot ${i === state.activeSlide ? 'active' : ''}"></div>`
+            ).join('');
+
+            const extraFields = state.isSignUpMode ? `
+                <input type="text" class="input-field" placeholder="För- & Efternamn" oninput="state.authFullName=this.value" value="${state.authFullName}" style="border-color:${activeColor}">
+                <input type="number" class="input-field" placeholder="Ålder" oninput="state.authAge=this.value" value="${state.authAge}" style="border-color:${activeColor}">
+                <input type="email" class="input-field" placeholder="E-post" oninput="state.authEmail=this.value" value="${state.authEmail}" style="border-color:${activeColor}">
+            ` : '';
+
+            return `
+                <div id="signup-view">
+                    <h1 style="color:var(--text-primary); margin-bottom:15px">Habit & Focus</h1>
+                    <div class="signup-card">
+                        <div class="carousel-container" onscroll="handleScroll(this)">
+                            ${slidesHtml}
+                        </div>
+                        <div class="pagination">
+                            ${dotsHtml}
+                        </div>
+                        <div class="form-section">
+                            <h3 style="text-align:center; margin-bottom:15px">${state.isSignUpMode ? 'Skapa konto' : 'Välkommen tillbaka'}</h3>
+                            ${extraFields}
+                            <input type="text" class="input-field" placeholder="Användarnamn" oninput="state.authName=this.value" value="${state.authName}" style="border-color:${activeColor}">
+                            <input type="password" class="input-field" placeholder="Lösenord" oninput="state.authPass=this.value" value="${state.authPass}" style="border-color:${activeColor}">
+                            
+                            <div class="action-btn" style="background-color: ${activeColor}" onclick="handleAuth()">
+                                ${state.isSignUpMode ? 'Börja Nu' : 'Logga In'}
+                            </div>
+                            <div class="toggle-link" onclick="state.isSignUpMode=!state.isSignUpMode; render()">
+                                ${state.isSignUpMode ? 'Har du redan ett konto? <b>Logga in</b>' : 'Ny här? <b>Skapa konto</b>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleScroll(el) {
+            const index = Math.round(el.scrollLeft / el.offsetWidth);
+            if (index !== state.activeSlide) {
+                state.activeSlide = index;
+                render(); // Re-render to update colors
+                // Preserve scroll position (simple hack: normally we'd diff DOM, here we might jump)
+                // To fix jumpiness in this simple implementation, we rely on the fact that standard render is fast.
+                // But specifically for scroll, let's just update styles dynamically to avoid re-rendering whole HTML.
+                // For this single-file demo, full re-render is safer for logic correctness.
+                // We'll set the scroll back after render.
+                requestAnimationFrame(() => {
+                    const newEl = document.querySelector('.carousel-container');
+                    if(newEl) newEl.scrollLeft = index * newEl.offsetWidth;
+                });
+            }
+        }
+
+        function renderTracker() {
+            if (state.habits.length === 0) return `<div style="text-align:center; margin-top:50px; color:var(--text-secondary)">Inga vanor än. Tryck på +</div>`;
+            
+            return state.habits.map(h => {
+                const isTimer = h.selectedMode === 'timer';
+                let displayTime = formatTime(h.elapsed);
+                if (isTimer && !h.isRunning) displayTime = "";
+                else if (isTimer && h.isRunning) displayTime = formatTime(Math.max(0, h.timerDuration - h.elapsed));
+
+                const cardBg = tintColor(h.color, 0.9, state.currentTheme);
+                const catColor = h.category ? getCategoryColor(h.category) : '#ccc';
+
+                return `
+                <div class="card" style="background-color: ${cardBg}">
+                    <div class="card-header">
+                        <div>
+                            <div class="habit-title" style="color: ${h.color}">${h.name}</div>
+                            ${h.category ? `<div class="category-tag" style="background-color: ${catColor}">${h.category}</div>` : ''}
+                            <div class="streak-info">
+                                <ion-icon name="flame" style="color: ${h.streak > 0 ? '#e67e22':'#aaa'}; margin-right:4px"></ion-icon>
+                                ${h.streak} dagar
+                            </div>
+                        </div>
+                        <ion-icon name="trash-outline" style="font-size:20px; color:var(--text-secondary); cursor:pointer" onclick="deleteHabit('${h.id}')"></ion-icon>
+                    </div>
+
+                    <div class="mode-switcher">
+                        <div class="mode-tab" style="${!isTimer ? `background-color:${h.color}; color:#fff` : ''}" 
+                             onclick="updateHabit('${h.id}', {selectedMode: 'stopwatch', elapsed:0, isRunning:false})">Tidtagarur</div>
+                        <div class="mode-tab" style="${isTimer ? `background-color:${h.color}; color:#fff` : ''}" 
+                             onclick="updateHabit('${h.id}', {selectedMode: 'timer', elapsed:0, isRunning:false})">Timer</div>
+                    </div>
+
+                    <div style="text-align:center">
+                        ${isTimer && !h.isRunning ? `
+                            <div class="timer-controls">
+                                <div class="arrow-btn" style="border-color:${h.color}; color:${h.color}" 
+                                     onclick="updateHabit('${h.id}', {timerInput: Math.max(1, parseInt('${h.timerInput}')-1)})"><ion-icon name="chevron-down"></ion-icon></div>
+                                <div>
+                                    <div style="font-size:30px; font-weight:bold; color:${h.color}">${h.timerInput}</div>
+                                    <div style="color:var(--text-secondary); font-size:12px">min</div>
+                                </div>
+                                <div class="arrow-btn" style="border-color:${h.color}; color:${h.color}" 
+                                     onclick="updateHabit('${h.id}', {timerInput: parseInt('${h.timerInput}')+1})"><ion-icon name="chevron-up"></ion-icon></div>
+                            </div>
+                        ` : `
+                            <div id="timer-${h.id}" class="timer-display" style="color:var(--text-primary)">${displayTime}</div>
+                        `}
+                    </div>
+
+                    <div id="btn-${h.id}" class="action-btn" 
+                         style="background-color: ${h.isRunning ? '#e74c3c' : h.color}" 
+                         onclick="toggleHabit('${h.id}')">
+                        ${h.isRunning ? 'AVSLUTA' : 'STARTA'}
+                    </div>
+
+                    ${!h.isRunning ? `<div class="manual-link" onclick="openManualModal('${h.id}', '${h.name}')">Logga manuellt</div>` : ''}
+                </div>
+                `;
+            }).join('');
+        }
+
+        function renderStats() {
+            // Simple aggregation
+            const stats = {};
+            state.history.forEach(item => {
+                if (!stats[item.habitName]) stats[item.habitName] = { sec: 0, color: item.color };
+                stats[item.habitName].sec += item.duration;
+            });
+            const data = Object.keys(stats).map(k => ({ name: k, sec: stats[k].sec, color: stats[k].color })).sort((a,b) => b.sec - a.sec);
+            const max = data.length ? data[0].sec : 1;
+
+            return `
+                <h3 style="margin-bottom:10px">Statistik</h3>
+                <div class="card">
+                    ${data.length === 0 ? '<div style="text-align:center; padding:20px; color:var(--text-secondary)">Ingen data än.</div>' : ''}
+                    ${data.map(d => `
+                        <div class="bar-container">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:5px">
+                                <strong>${d.name}</strong>
+                                <span style="font-size:12px">${formatTime(d.sec)}</span>
+                            </div>
+                            <div class="bar-bg">
+                                <div class="bar-fill" style="width: ${Math.max(2, (d.sec / max) * 100)}%; background-color: ${d.color}"></div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderGoals() {
+             if (state.habits.length === 0) return `<div style="text-align:center; margin-top:50px; color:var(--text-secondary)">Inga vanor än.</div>`;
+             
+             return state.habits.map(h => {
+                 const goal = state.goals.find(g => g.habitId === h.id);
+                 let progress = 0;
+                 // Mock calculation for display simplicity
+                 if(goal) {
+                     const historyItems = state.history.filter(i => i.habitName === h.name);
+                     const total = historyItems.reduce((acc, c) => acc + c.duration, 0);
+                     progress = Math.floor(total / 60);
+                 }
+                 const target = goal ? goal.targetMinutes : 1;
+                 const pct = Math.min(1, progress / target);
+                 const barColor = pct < 0.33 ? '#e74c3c' : pct < 0.66 ? '#e67e22' : '#2ecc71';
+
+                 return `
+                    <div class="card" style="background-color: ${tintColor(h.color, 0.9, state.currentTheme)}">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+                            <div class="habit-title" style="color:${h.color}; font-size:18px">${h.name}</div>
+                            <div style="background-color:${h.color}; color:white; padding:5px 10px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer"
+                                 onclick="openGoalModal('${h.id}')">${goal ? 'Ändra' : 'Sätt Mål'}</div>
+                        </div>
+                        ${goal ? `
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:5px">Mål: ${goal.targetMinutes} min / ${goal.period}</div>
+                            <div class="bar-bg"><div class="bar-fill" style="width:${pct*100}%; background-color:${barColor}"></div></div>
+                            <div style="text-align:right; font-size:12px; margin-top:5px; font-weight:bold">${progress} min (${Math.round(pct*100)}%)</div>
+                        ` : ''}
+                    </div>
+                 `;
+             }).join('');
+        }
+
+        function renderSettings() {
+            return `
+                <h3>Tema</h3>
+                ${THEMES.map(t => `
+                    <div class="card" style="display:flex; align-items:center; cursor:pointer; border: ${state.currentTheme === t.id ? '2px solid var(--text-primary)' : '1px solid transparent'}"
+                         onclick="state.currentTheme='${t.id}'; applyTheme('${t.id}'); persistUser(); render()">
+                         <div style="width:30px; height:30px; border-radius:50%; background-color:${t.id==='dark'?'#000': t.id==='retro'?'#fbf8f1':'#eee'}; margin-right:10px; border:1px solid #ccc"></div>
+                         <strong>${t.name}</strong>
+                         ${state.currentTheme === t.id ? '<ion-icon name="checkmark" style="margin-left:auto"></ion-icon>' : ''}
+                    </div>
+                `).join('')}
+                
+                <h3 style="margin-top:20px">Konto</h3>
+                <div class="card">
+                    <div style="font-size:12px; text-transform:uppercase; color:var(--text-secondary)">Inloggad som</div>
+                    <div style="font-size:16px; font-weight:bold">${state.currentUser}</div>
+                </div>
+                <div class="action-btn" style="background-color:#e74c3c" onclick="handleLogout()">Logga Ut</div>
+            `;
+        }
+
+        function renderModals() {
+            // Add Modal
+            const cats = [...new Set(state.habits.map(h => h.category).filter(c => c))];
+            
+            return `
+                <div class="modal-overlay ${state.showAddModal ? 'open' : ''}">
+                    <div class="modal-content">
+                        <h3>Ny Vana</h3>
+                        <input type="text" class="input-field" placeholder="Namn" value="${state.newHabitName}" oninput="state.newHabitName=this.value">
+                        <input type="text" class="input-field" placeholder="Kategori" value="${state.newHabitCategory}" oninput="state.newHabitCategory=this.value">
+                        ${cats.length ? `<div class="cat-scroll">
+                            ${cats.map(c => `<div class="cat-chip" style="background-color:${getCategoryColor(c)}" onclick="state.newHabitCategory='${c}'; render()">${c}</div>`).join('')}
+                        </div>` : ''}
+                        
+                        <div class="color-grid">
+                            ${COLORS.map(c => `<div class="color-circle ${state.newHabitColor===c?'selected':''}" style="background-color:${c}" onclick="state.newHabitColor='${c}'; render()"></div>`).join('')}
+                        </div>
+                        <div class="modal-btns">
+                            <div style="color:var(--text-secondary); cursor:pointer" onclick="state.showAddModal=false; render()">Avbryt</div>
+                            <div style="color:var(--text-primary); font-weight:bold; cursor:pointer" onclick="addHabit()">Spara</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-overlay ${state.showManualModal ? 'open' : ''}">
+                    <div class="modal-content">
+                        <h3>Logga Manuellt</h3>
+                        <input type="date" class="input-field" value="${state.manualDate}" oninput="state.manualDate=this.value">
+                        <input type="number" class="input-field" placeholder="Minuter" value="${state.manualMinutes}" oninput="state.manualMinutes=this.value">
+                         <div class="modal-btns">
+                            <div style="color:var(--text-secondary); cursor:pointer" onclick="state.showManualModal=false; render()">Avbryt</div>
+                            <div style="color:var(--text-primary); font-weight:bold; cursor:pointer" onclick="saveManual()">Spara</div>
+                        </div>
+                    </div>
+                </div>
+
+                 <div class="modal-overlay ${state.showGoalModal ? 'open' : ''}">
+                    <div class="modal-content">
+                        <h3>Sätt Mål</h3>
+                         <div style="display:flex; margin-bottom:10px; gap:5px">
+                            ${['daily','weekly','monthly'].map(p => `
+                                <div style="flex:1; padding:5px; text-align:center; border-radius:5px; font-size:12px; cursor:pointer; background-color:${state.goalPeriod===p?'rgba(0,0,0,0.1)':'transparent'}"
+                                     onclick="state.goalPeriod='${p}'; render()">${p==='daily'?'Dag':p==='weekly'?'Vecka':'Månad'}</div>
+                            `).join('')}
+                        </div>
+                        <input type="number" class="input-field" placeholder="Mål (minuter)" value="${state.goalTarget}" oninput="state.goalTarget=this.value">
+                         <div class="modal-btns">
+                            <div style="color:var(--text-secondary); cursor:pointer" onclick="state.showGoalModal=false; render()">Avbryt</div>
+                            <div style="color:var(--text-primary); font-weight:bold; cursor:pointer" onclick="saveGoal()">Spara</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- HELPERS FOR INTERACTION ---
+        function updateHabit(id, fields) {
+            state.habits = state.habits.map(h => h.id === id ? {...h, ...fields} : h);
+            render();
+        }
+
+        function openManualModal(id, name) {
+            state.manualHabitId = id;
+            state.manualDate = getTodayString();
+            state.manualMinutes = '';
+            state.showManualModal = true;
+            render();
+        }
+
+        function saveManual() {
+            const h = state.habits.find(h => h.id === state.manualHabitId);
+            if(h && state.manualMinutes) {
+                saveSession(h.name, parseInt(state.manualMinutes)*60, 'manual', h.color);
+                state.showManualModal = false;
+            }
+        }
+
+        function openGoalModal(id) {
+            state.goalHabitId = id;
+            const g = state.goals.find(x => x.habitId === id);
+            state.goalTarget = g ? g.targetMinutes : '';
+            state.goalPeriod = g ? g.period : 'daily';
+            state.showGoalModal = true;
+            render();
+        }
+
+        function saveGoal() {
+            if(!state.goalHabitId || !state.goalTarget) return;
+            state.goals = state.goals.filter(g => g.habitId !== state.goalHabitId);
+            state.goals.push({
+                habitId: state.goalHabitId,
+                targetMinutes: parseInt(state.goalTarget),
+                period: state.goalPeriod
+            });
+            state.showGoalModal = false;
+            persistUser();
+            render();
+        }
+
+        // --- MAIN RENDER ---
+        function render() {
+            const app = document.getElementById('app');
+            
+            if (!state.isLoggedIn) {
+                app.innerHTML = renderSignUp();
+                return;
+            }
+
+            app.innerHTML = `
+                <div class="header">${state.currentTab === 'tracker' ? 'Min Habit Tracker' : state.currentTab === 'stats' ? 'Statistik' : state.currentTab === 'goals' ? 'Mål' : 'Inställningar'}</div>
+                
+                <div class="scroll-view">
+                    ${state.currentTab === 'tracker' ? renderTracker() : ''}
+                    ${state.currentTab === 'stats' ? renderStats() : ''}
+                    ${state.currentTab === 'goals' ? renderGoals() : ''}
+                    ${state.currentTab === 'settings' ? renderSettings() : ''}
+                </div>
+
+                ${state.currentTab === 'tracker' ? '<div class="fab" onclick="state.showAddModal=true; render()"><ion-icon name="add"></ion-icon></div>' : ''}
+
+                <div class="tab-bar">
+                    <div class="tab-item ${state.currentTab==='tracker'?'active':''}" onclick="state.currentTab='tracker'; render()">
+                        <ion-icon name="list-outline" style="font-size:24px"></ion-icon>
+                        <span class="tab-text">Spåra</span>
+                    </div>
+                    <div class="tab-item ${state.currentTab==='stats'?'active':''}" onclick="state.currentTab='stats'; render()">
+                        <ion-icon name="pie-chart-outline" style="font-size:24px"></ion-icon>
+                        <span class="tab-text">Statistik</span>
+                    </div>
+                    <div class="tab-item ${state.currentTab==='goals'?'active':''}" onclick="state.currentTab='goals'; render()">
+                        <ion-icon name="trophy-outline" style="font-size:24px"></ion-icon>
+                        <span class="tab-text">Mål</span>
+                    </div>
+                    <div class="tab-item ${state.currentTab==='settings'?'active':''}" onclick="state.currentTab='settings'; render()">
+                        <ion-icon name="settings-outline" style="font-size:24px"></ion-icon>
+                        <span class="tab-text">Inställningar</span>
+                    </div>
+                </div>
+
+                ${renderModals()}
+            `;
+        }
+
+        // Init
+        render();
+
+    </script>
+</body>
+</html>

@@ -14,8 +14,8 @@
     "react": "^19.2.1",
     "react-native": "^0.82.1",
     "@expo/vector-icons": "^15.0.3",
-    "expo-camera": "^17.0.10",
-    "react-native-draggable-flatlist": "^4.0.3"
+    "react-native-draggable-flatlist": "^4.0.3",
+    "expo-camera": "^17.0.10"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

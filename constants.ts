@@ -1,0 +1,1 @@
+// Constants moved to App.tsx

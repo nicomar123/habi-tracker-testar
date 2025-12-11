@@ -8,6 +8,9 @@
     <!-- Ionicons -->
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    
+    <!-- SortableJS for Drag and Drop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 
     <style>
         :root {
@@ -19,7 +22,7 @@
             --header-bg: #ffffff;
             --tab-bg: #ffffff;
             --modal-bg: #ffffff;
-            --icon-default: #95a5a6;
+            --icon-default: #bdc3c7;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
@@ -74,16 +77,34 @@
             flex-direction: column;
             height: 100%;
             width: 100%;
+            position: relative; /* For overlays */
         }
 
         .header {
             padding: 15px;
             background-color: var(--header-bg);
             border-bottom: 1px solid var(--border-color);
-            text-align: center;
+            display: flex;
+            justify-content: space-between; /* To space out Help button */
+            align-items: center;
             font-weight: bold;
             font-size: 18px;
             z-index: 10;
+        }
+        
+        /* Placeholder to balance the help button for centering text */
+        .header-spacer { width: 30px; }
+        .header-help-btn {
+            width: 30px; 
+            height: 30px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            border-radius: 50%;
+            background-color: rgba(0,0,0,0.05);
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 16px;
         }
 
         .scroll-view {
@@ -93,8 +114,15 @@
             padding-bottom: 100px;
         }
 
+        /* Centered container for Stats, Goals, Settings - WIDER NOW */
+        .content-container {
+            max-width: 850px; /* Increased from 600px */
+            margin: 0 auto;
+            width: 100%;
+        }
+
         .tab-bar {
-            height: 60px;
+            height: 70px; /* Slightly taller */
             background-color: var(--tab-bg);
             border-top: 1px solid var(--border-color);
             display: flex;
@@ -102,6 +130,8 @@
             justify-content: space-around;
             align-items: center;
             z-index: 10;
+            padding-bottom: 5px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.02);
         }
 
         .tab-item {
@@ -112,120 +142,298 @@
             cursor: pointer;
             width: 100%;
             height: 100%;
-            color: var(--icon-default);
+            /* BOLD AND BLACK (TEXT-PRIMARY) */
+            color: var(--text-primary);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s;
+            position: relative;
+            opacity: 0.7; /* Slightly fade inactive */
+        }
+        
+        .tab-item.active {
+            opacity: 1; /* Fully visible when active */
         }
 
-        .tab-item.active {
-            color: var(--text-primary);
+        /* HOVER EFFECT - SCALE UP */
+        .tab-item:hover {
+            opacity: 1;
+            transform: scale(1.15); /* Make larger on hover */
+        }
+        
+        /* Active state static scale */
+        .tab-item.active ion-icon {
+            transform: scale(1.05); 
+        }
+
+        .tab-item ion-icon {
+            font-size: 28px; /* Larger icons */
+            margin-bottom: 4px;
+            /* Make icons bold/filled style via weight if font allows, or just color */
+            stroke-width: 40px;
         }
 
         .tab-text {
-            font-size: 10px;
-            margin-top: 4px;
+            font-size: 11px;
+            font-weight: 800; /* EXTRA BOLD */
         }
 
-        /* --- Components --- */
+        /* --- Grid Layout for Habits --- */
+        #habit-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            grid-auto-rows: 150px; /* Fixed row height for consistency */
+            grid-auto-flow: dense; /* Fills holes in the grid */
+            gap: 15px;
+            padding-bottom: 80px;
+            /* Full width restored */
+            width: 100%;
+            margin: 0;
+        }
+
+        .square-card {
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            padding: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            /* Removed transition here to avoid conflict with SortableJS drag */
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: visible; /* Changed to visible so menu can pop out if needed, though aligned inside */
+            touch-action: none; /* Important for SortableJS on touch */
+        }
+
+        /* Only animate transform when NOT dragging */
+        .square-card:not(.sortable-drag):not(.sortable-ghost) {
+            transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s;
+        }
+
+        /* Sizes */
+        .size-small {
+            grid-column: span 1;
+            grid-row: span 1;
+        }
+        
+        .size-medium {
+            grid-column: span 2;
+            grid-row: span 1;
+        }
+
+        .size-large {
+            grid-column: span 2;
+            grid-row: span 2;
+        }
+
+        .size-xxl {
+            grid-column: 1 / -1; /* Full width */
+            grid-row: span 2;
+        }
+
+        /* Mobile adjustment: On very small screens, prevent overflow */
+        @media (max-width: 340px) {
+            .size-medium, .size-large {
+                grid-column: span 1 !important; 
+            }
+        }
+
+        /* iOS-like drag style - Liquid Flow */
+        .sortable-ghost {
+            opacity: 0; /* Fully transparent hole */
+            background-color: transparent;
+        }
+        
+        .sortable-drag {
+            cursor: grabbing;
+            opacity: 1 !important; /* Force opacity */
+            transform: scale(1.1) rotate(3deg); /* Bigger pop and slight tilt */
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3); /* Deeper shadow */
+            z-index: 10000; /* Ensure it's on top */
+        }
+
+        /* Prevent button clicks while dragging */
+        .sortable-drag .start-btn-small, 
+        .sortable-drag .mode-icon {
+            pointer-events: none;
+        }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: relative;
+            z-index: 2;
+        }
+
+        .card-middle {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .card-bottom {
+            margin-top: 5px;
+        }
+
+        .habit-title {
+            font-size: 16px;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 90px;
+        }
+        
+        /* Adjust title width for larger cards */
+        .size-medium .habit-title, .size-large .habit-title, .size-xxl .habit-title {
+            max-width: 200px;
+            font-size: 20px;
+        }
+
+        .category-tag {
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 9px;
+            color: white;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 2px;
+        }
+
+        .timer-display-small {
+            font-size: 24px;
+            font-weight: 300;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .size-large .timer-display-small, .size-xxl .timer-display-small {
+            font-size: 48px;
+        }
+
+        .start-btn-small {
+            width: 100%;
+            height: 36px; /* Fixed height for consistency */
+            border-radius: 12px;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center; /* PERFECT CENTERING */
+        }
+        .start-btn-small.loading {
+            opacity: 0.7;
+            cursor: wait;
+        }
+        
+        .size-large .start-btn-small, .size-xxl .start-btn-small {
+            height: 48px;
+            font-size: 18px;
+        }
+
+        .mode-icon {
+            font-size: 16px;
+            padding: 4px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.05);
+            cursor: pointer;
+        }
+
+        /* Resize Menu - Updated to blend in */
+        .resize-menu {
+            position: absolute;
+            top: -5px; right: -5px;
+            background-color: var(--card-bg); /* Match card background */
+            padding: 4px;
+            border-radius: 12px;
+            display: flex;
+            gap: 4px;
+            justify-content: flex-end;
+            align-items: center;
+            z-index: 20;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Soft shadow */
+            border: 1px solid var(--border-color);
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .size-btn {
+            font-size: 10px;
+            font-weight: bold;
+            padding: 5px 8px;
+            border-radius: 6px;
+            background: var(--bg-color); /* Slightly distinct from card bg */
+            color: var(--text-primary);
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .size-btn:hover { 
+            background: var(--border-color); 
+        }
+
+        /* --- Standard Card for other views --- */
         .card {
             background-color: var(--card-bg);
             border-radius: 16px;
             padding: 15px;
             margin-bottom: 15px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            transition: transform 0.1s;
         }
 
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 10px;
-        }
-
-        .habit-title {
-            font-size: 20px;
-            font-weight: bold;
-        }
-
-        .category-tag {
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            color: white;
-            font-weight: bold;
-            display: inline-block;
-            margin-top: 4px;
-        }
-
-        .streak-info {
-            display: flex;
-            align-items: center;
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 2px;
-        }
-
-        .mode-switcher {
+        /* --- Statistics Filters --- */
+        .filter-container {
             display: flex;
             background-color: rgba(0,0,0,0.05);
             border-radius: 8px;
-            padding: 2px;
-            margin-bottom: 15px;
+            padding: 4px;
+            margin-bottom: 20px;
         }
 
-        .mode-tab {
+        .filter-btn {
             flex: 1;
             text-align: center;
             padding: 8px;
-            border-radius: 6px;
             font-size: 12px;
-            font-weight: 600;
+            border-radius: 6px;
             cursor: pointer;
-            color: #7f8c8d;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        
+        .filter-btn.active {
+            background-color: var(--text-primary);
+            color: var(--bg-color);
         }
 
-        .timer-display {
-            font-size: 40px;
-            font-weight: 300;
-            text-align: center;
-            margin: 10px 0;
-            font-feature-settings: "tnum";
-            font-variant-numeric: tabular-nums;
-        }
-
-        .timer-controls {
+        .chart-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 20px;
+            margin-bottom: 15px;
         }
 
-        .arrow-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 2px solid;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .chart-toggle-icon {
+            font-size: 24px;
+            margin-left: 10px;
             cursor: pointer;
-            background-color: rgba(255,255,255,0.5);
-            font-size: 20px;
+            color: var(--icon-default);
         }
-
-        .action-btn {
-            padding: 15px;
-            border-radius: 12px;
-            text-align: center;
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 10px;
+        
+        .chart-toggle-icon.active {
+            color: var(--text-primary);
         }
 
         .fab {
             position: absolute;
-            bottom: 80px;
+            bottom: 90px;
             right: 20px;
             width: 60px;
             height: 60px;
@@ -241,11 +449,40 @@
             z-index: 100;
         }
 
+        /* BOUNCING ARROW HINT */
+        .fab-hint-arrow {
+            position: fixed;
+            bottom: 130px; /* Adjusted position higher */
+            right: 50px;   /* Adjusted to point better */
+            width: 250px;  /* Better size */
+            height: 250px;
+            z-index: 150;
+            pointer-events: none; /* Let clicks pass through */
+            animation: bounceArrow 2s infinite ease-in-out;
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.2));
+            transform-origin: bottom right;
+        }
+        
+        .fab-hint-arrow svg {
+            width: 100%;
+            height: 100%;
+            fill: none;
+            stroke: var(--text-primary);
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        @keyframes bounceArrow {
+            0%, 100% {transform: translateY(0) rotate(0deg);}
+            50% {transform: translateY(-10px) rotate(-2deg);}
+        }
+
         .manual-link {
             text-align: center;
-            margin-top: 10px;
+            margin-top: 5px;
             color: var(--text-secondary);
-            font-size: 12px;
+            font-size: 10px;
             text-decoration: underline;
             cursor: pointer;
         }
@@ -259,29 +496,43 @@
             height: 100%;
             background-color: var(--bg-color);
             padding: 20px;
+            position: relative;
+        }
+
+        /* Background image placeholder */
+        .signup-bg {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url('https://via.placeholder.com/1080x1920.png?text='); /* Empty text for clean abstract look if link fails */
+            background-size: cover;
+            background-position: center;
+            opacity: 0.1; /* Very faint background pattern */
+            z-index: 0;
         }
 
         .signup-card {
             width: 100%;
-            max-width: 350px;
+            max-width: 480px; /* Wider card */
             background-color: var(--card-bg);
             border-radius: 24px;
             overflow: hidden;
             box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            z-index: 1;
         }
 
         .carousel-container {
             width: 100%;
-            height: 340px;
-            overflow-x: auto;
+            height: 440px; /* Increased from 340px to fit taller images */
+            overflow-x: hidden; /* Hide default scrollbar */
             display: flex;
             scroll-snap-type: x mandatory;
-            scroll-behavior: smooth;
-            -webkit-overflow-scrolling: touch;
+            /* scroll-behavior: smooth; REMOVED for better drag control */
+            cursor: grab;
         }
         
-        .carousel-container::-webkit-scrollbar {
-            display: none; 
+        .carousel-container.active {
+            cursor: grabbing;
+            scroll-snap-type: none; /* Disable snap while dragging */
         }
 
         .slide {
@@ -293,14 +544,14 @@
         }
 
         .slide-hero {
-            width: 90%;
-            height: 60%;
-            margin-top: 12px;
+            width: 85%;
+            height: 320px; /* Increased height significantly (was 60%) to be more square */
+            margin-top: 30px; /* Increased top padding */
             border-radius: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 10px;
+            margin-bottom: 20px;
             position: relative;
         }
 
@@ -330,18 +581,18 @@
         .pagination {
             display: flex;
             justify-content: center;
-            margin-top: -30px;
-            margin-bottom: 10px;
+            margin-top: 10px; /* Fixed: Changed from -30px to positive to avoid overlap */
+            margin-bottom: 15px;
             position: relative;
             z-index: 5;
         }
 
         .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 3px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
             background-color: rgba(0,0,0,0.1);
-            margin: 0 3px;
+            margin: 0 4px;
             transition: background-color 0.3s;
         }
 
@@ -462,6 +713,406 @@
             white-space: nowrap;
         }
 
+        .period-selector {
+            display: flex;
+            margin-bottom: 15px;
+            background-color: rgba(0,0,0,0.05);
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .period-btn {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+        .period-btn.active {
+            background-color: var(--card-bg);
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* --- TUTORIAL OVERLAY & PAYWALL --- */
+        .tutorial-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255,255,255,0.1);
+            backdrop-filter: blur(8px); /* The blurring effect */
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        [data-theme="dark"] .tutorial-overlay {
+            background-color: rgba(0,0,0,0.3);
+        }
+
+        .tutorial-card {
+            background-color: var(--card-bg);
+            width: 100%;
+            max-width: 320px;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+            position: relative;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .anim-stage {
+            width: 100%;
+            height: 180px;
+            background-color: var(--bg-color);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        
+        /* Paywall specifics */
+        .paywall-stage {
+            width: 100%;
+            height: 140px;
+            background: linear-gradient(135deg, #f1c40f 0%, #e67e22 100%);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 60px;
+        }
+
+        .tut-btn-primary {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-block;
+        }
+        .tut-btn-sec {
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            padding: 10px;
+            margin-right: 10px;
+        }
+
+        /* Animation Elements */
+        .anim-card {
+            width: 110px;
+            height: 110px;
+            background-color: white;
+            border-radius: 16px;
+            position: absolute;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            color: #555;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+        }
+
+        /* Inner card styling for tutorial */
+        .anim-card-header {
+            text-align: left;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .anim-card-display {
+            font-size: 18px;
+            text-align: center;
+            font-weight: 300;
+            color: var(--text-primary);
+        }
+        .anim-card-btn-fake {
+            height: 24px;
+            border-radius: 8px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        /* --- SCENE 1: SWAP ANIMATION (REFINED) --- */
+        .swap-scene .card-a {
+            top: 35px; left: 30px; 
+            background: #e8f4fd; /* Tinted BG */
+            animation: swapA 3.5s infinite ease-in-out;
+            z-index: 20; /* Keep high z-index to fly OVER */
+        }
+        .swap-scene .card-b {
+            top: 35px; left: 160px;
+            background: #fdecec; /* Tinted BG */
+            animation: swapB 3.5s infinite ease-in-out;
+            z-index: 10; /* Lower z-index to slide UNDER */
+        }
+
+        /* Card A picks up, flies OVER, drops */
+        @keyframes swapA {
+            0%, 20% { transform: translate(0,0); box-shadow: 0 4px 10px rgba(0,0,0,0.15); } 
+            
+            25% { transform: scale(1.15) rotate(2deg); box-shadow: 0 20px 40px rgba(0,0,0,0.25); z-index: 100; } /* PICK UP */
+            
+            45% { transform: translate(130px, 0) scale(1.15) rotate(2deg); z-index: 100;} /* MOVE OVER */
+            
+            60% { transform: translate(130px, 0) scale(1) rotate(0deg); box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 20; } /* DROP */
+            
+            80%, 100% { transform: translate(0,0); } /* RESET (Fade/Snap back) */
+        }
+
+        /* Card B slides AWAY/UNDER to make room */
+        @keyframes swapB {
+            0%, 25% { transform: translate(0,0); }
+            
+            /* Wait slightly until A is moving over it */
+            30% { transform: translate(0, 0); } 
+            
+            /* Slide left UNDERNEATH A */
+            45%, 60% { transform: translate(-130px, 0); }
+            
+            /* Reset */
+            80%, 100% { transform: translate(0,0); } 
+        }
+
+        /* --- SCENE 2: RESIZE ANIMATION (WITH CURSOR) --- */
+        .resize-scene {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%; height: 100%;
+            position: relative;
+        }
+        .resize-card {
+            width: 110px;
+            height: 110px;
+            background-color: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: relative;
+            animation: cardResizeWithClick 4s infinite ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            font-weight: bold;
+        }
+        .resize-card::after {
+            content: "S";
+            animation: textResizeWithClick 4s infinite ease-in-out;
+        }
+        .resize-icon {
+            position: absolute;
+            top: 8px; right: 8px;
+            font-size: 14px; color: #999;
+        }
+        
+        /* New Cursor for Resize */
+        .tut-cursor-resize {
+            width: 0; height: 0; 
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 12px solid #333;
+            position: absolute;
+            transform: rotate(-45deg);
+            z-index: 30;
+            top: 100px; left: 50%;
+            animation: resizeCursorPath 4s infinite ease-in-out;
+        }
+
+        /* Synchronized animations: Cursor clicks -> Card grows */
+        @keyframes resizeCursorPath {
+            0% { top: 120px; left: 160px; transform: rotate(-45deg) scale(1); } /* Idle away */
+            20% { top: calc(50% - 42px); left: calc(50% + 40px); transform: rotate(-45deg) scale(1); } /* Move to Icon - Corrected Position */
+            25% { transform: rotate(-45deg) scale(0.8); } /* Click */
+            30% { transform: rotate(-45deg) scale(1); } /* Release */
+            100% { top: 120px; left: 160px; transform: rotate(-45deg) scale(1); } /* Idle */
+        }
+
+        @keyframes cardResizeWithClick {
+            0%, 25% { width: 110px; height: 110px; } /* Wait for click */
+            30%, 80% { width: 160px; height: 140px; } /* Grow after click */
+            100% { width: 110px; height: 110px; } /* Reset */
+        }
+        
+        @keyframes textResizeWithClick {
+            0%, 25% { content: "S"; }
+            30%, 80% { content: "L"; }
+            100% { content: "S"; }
+        }
+
+        /* --- SCENE 3: REALISTIC MODE & TIMER --- */
+        .mode-scene {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .tut-real-card {
+            width: 150px; 
+            height: 140px; /* FIXED HEIGHT TO PREVENT JUMPING */
+            background: #e8f4fd; /* Tinted blue like existing cards */
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tut-real-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            height: 30px; /* Fixed height for header area */
+        }
+
+        .tut-title {
+            font-size: 14px; font-weight: bold; color: #3498db;
+        }
+        .tut-icons {
+            display: flex; gap: 3px;
+        }
+        .tut-icon-circle {
+            width: 18px; height: 18px; background: rgba(0,0,0,0.05);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 12px; color: #555;
+        }
+
+        .tut-middle {
+            flex: 1; /* Takes up remaining space */
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Absolute positioning to stack them on top of each other in the same space */
+        .tut-stopwatch-view, .tut-timer-view {
+            position: absolute;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.3s ease;
+        }
+
+        .tut-stopwatch-view {
+            font-size: 24px; font-weight: 300; color: #2c3e50;
+            opacity: 1;
+            animation: fadeOutView 5s infinite step-end;
+        }
+        
+        .tut-timer-view {
+            opacity: 0;
+            flex-direction: row;
+            gap: 5px;
+            animation: fadeInView 5s infinite step-end;
+        }
+        
+        /* Adjusted Timing to match Smoother Cursor */
+        @keyframes fadeOutView {
+            0%, 25% { opacity: 1; z-index: 2; } /* Wait for click at 25% */
+            25%, 100% { opacity: 0; z-index: 1; }
+        }
+        
+        @keyframes fadeInView {
+            0%, 25% { opacity: 0; z-index: 1; }
+            25%, 100% { opacity: 1; z-index: 2; }
+        }
+
+        .tut-timer-arrow {
+            width: 20px; height: 20px; border-radius: 10px; border: 1px solid #3498db;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; color: #3498db; background: rgba(255,255,255,0.5);
+        }
+        
+        .tut-timer-val {
+            text-align: center;
+        }
+        .tut-timer-val-big { font-size: 20px; font-weight: bold; color: #3498db; }
+        .tut-timer-val-small { font-size: 8px; color: #7f8c8d; }
+
+        .tut-btn {
+            width: 100%; height: 32px; 
+            background: #3498db;
+            border-radius: 10px;
+            color: white; font-size: 11px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; gap: 4px;
+            animation: tutBtnClick 5s infinite step-end;
+        }
+
+        /* Smoother Timer Cursor */
+        .tut-cursor-2 {
+            width: 0; height: 0; 
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 12px solid #333;
+            position: absolute;
+            transform: rotate(-45deg);
+            z-index: 20;
+            top: 120px; left: 120px;
+            animation: tutCursorPathSmoother 5s infinite ease-in-out;
+        }
+
+        @keyframes tutCursorPathSmoother {
+            0% { top: 130px; left: 120px; transform: rotate(-45deg) scale(1); } /* Start away */
+            
+            20% { top: 35px; left: 165px; transform: rotate(-45deg) scale(1); } /* Over Hourglass */
+            25% { transform: rotate(-45deg) scale(0.8); } /* CLICK */
+            30% { transform: rotate(-45deg) scale(1); } /* Release */
+            
+            35% { top: 35px; left: 165px; } /* Pause slightly */
+            
+            50% { top: 105px; left: 140px; } /* Move to Start Button */
+            55% { transform: rotate(-45deg) scale(0.8); } /* CLICK */
+            60% { transform: rotate(-45deg) scale(1); } /* Release */
+            
+            80% { top: 130px; left: 120px; } /* Move away */
+            100% { top: 130px; left: 120px; }
+        }
+        
+        @keyframes tutBtnClick {
+            0%, 55% { background: #3498db; } /* Blue until click at 55% */
+            55%, 100% { background: #e74c3c; } /* Red after */
+        }
+        
+        /* Helper class for button text change */
+        .tut-btn::after {
+            content: "STARTA";
+            animation: tutBtnText 5s infinite step-end;
+        }
+        .tut-btn span { display: none; } /* Hide static text */
+        
+        @keyframes tutBtnText {
+            0%, 55% { content: "STARTA"; }
+            55%, 100% { content: "AVSLUTA"; }
+        }
+
     </style>
 <script type="importmap">
 {
@@ -483,7 +1134,38 @@
     <div id="app"></div>
 
     <!-- MAIN SCRIPT -->
-    <script>
+    <script type="module">
+        // --- FIREBASE IMPORTS ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyBfLrqcRYenQ0Pie6G7Fq8PpNLcApPVs14",
+          authDomain: "habittestar.firebaseapp.com",
+          projectId: "habittestar",
+          storageBucket: "habittestar.firebasestorage.app",
+          messagingSenderId: "1082852769354",
+          appId: "1:1082852769354:web:fff23667adfba7719770b3",
+          measurementId: "G-1JVKFFGRWR"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // LÖSNING: Logga ut användaren direkt vid start för att förhindra automatisk inloggning
+        // om en session ligger kvar i webbläsaren.
+        signOut(auth).then(() => {
+            console.log("Session rensad vid start.");
+        }).catch((error) => {
+            console.error("Fel vid rensning av session:", error);
+        });
+
         // --- CONSTANTS & DATA ---
         const COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#1abc9c', '#34495e'];
         
@@ -499,13 +1181,83 @@
             { id: '3', title: 'Nå dina mål', desc: 'Samla statistik och se din utveckling.', icon: 'trending-up', color: '#f1c40f', bgColor: '#fef9e6' }
         ];
 
-        // "Database"
-        const USERS_DB = {};
+        const TUTORIAL_STEPS = [
+            {
+                title: "Dra & Släpp",
+                desc: "Håll inne och dra korten för att organisera dina vanor. De andra korten flyttar sig automatiskt.",
+                scene: `
+                    <div class="swap-scene">
+                        <div class="anim-card card-a">
+                            <div class="anim-card-header" style="color:#3498db">Läsa</div>
+                            <div class="anim-card-display">15:00</div>
+                            <div class="anim-card-btn-fake" style="background:#3498db">STARTA</div>
+                        </div>
+                        <div class="anim-card card-b">
+                            <div class="anim-card-header" style="color:#e74c3c">Träna</div>
+                            <div class="anim-card-display">00:00</div>
+                            <div class="anim-card-btn-fake" style="background:#e74c3c">STARTA</div>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "Ändra Storlek",
+                desc: "Klicka på pilen i hörnet på kortet för att ändra storlek: Small, Medium eller Large.",
+                scene: `
+                     <div class="resize-scene">
+                        <div class="resize-card">
+                           <div class="resize-icon">⤡</div>
+                        </div>
+                        <div class="tut-cursor-resize"></div>
+                    </div>
+                `
+            },
+            {
+                title: "Timer & Fokus",
+                desc: "Byt mellan Tidtagarur och Timer via ikonerna. Använd pilarna för att ställa in tiden.",
+                scene: `
+                    <div class="mode-scene">
+                        <div class="tut-real-card">
+                            <div class="tut-real-top">
+                                <div>
+                                    <div class="tut-title">Läsa</div>
+                                    <div class="category-tag" style="background:#3498db">Hälsa</div>
+                                </div>
+                                <div class="tut-icons">
+                                    <div class="tut-icon-circle"><ion-icon name="resize-outline"></ion-icon></div>
+                                    <div class="tut-icon-circle"><ion-icon name="hourglass"></ion-icon></div>
+                                    <div class="tut-icon-circle"><ion-icon name="trash-outline"></ion-icon></div>
+                                </div>
+                            </div>
+                            
+                            <div class="tut-middle">
+                                <div class="tut-stopwatch-view">00:00</div>
+                                <div class="tut-timer-view">
+                                    <div class="tut-timer-arrow"><ion-icon name="chevron-down"></ion-icon></div>
+                                    <div class="tut-timer-val">
+                                        <div class="tut-timer-val-big">25</div>
+                                        <div class="tut-timer-val-small">min</div>
+                                    </div>
+                                    <div class="tut-timer-arrow"><ion-icon name="chevron-up"></ion-icon></div>
+                                </div>
+                            </div>
+                            
+                            <div class="card-bottom">
+                                <div class="tut-btn"></div>
+                            </div>
+                        </div>
+                        <div class="tut-cursor-2"></div>
+                    </div>
+                `
+            }
+        ];
         
         // --- STATE ---
         let state = {
             isLoggedIn: false,
-            currentUser: null,
+            isLoading: false, 
+            currentUser: null, // UID
+            displayEmail: '',
             isSignUpMode: true,
             activeSlide: 0,
             currentTab: 'tracker',
@@ -513,23 +1265,35 @@
             habits: [],
             history: [],
             goals: [],
-            
+            isPremium: false,
+
             // Auth Form
             authName: '', authPass: '', authEmail: '', authFullName: '', authAge: '',
             
             // Modal States
             showAddModal: false, showManualModal: false, showAdjustModal: false, showGoalModal: false,
             
+            // Tutorial & Paywall State
+            showTutorial: false,
+            tutorialStep: 0,
+            showFabHint: false, 
+            showPaywall: false, 
+
             // Temporary Edit Data
             newHabitName: '', newHabitCategory: '', newHabitColor: COLORS[0],
             manualHabitId: null, manualDate: '', manualMinutes: '',
             goalHabitId: null, goalTarget: '', goalPeriod: 'daily', goalStart: '', goalEnd: '',
             
-            // Stats
-            statsFilter: 'all', chartType: 'bar'
+            // Stats & Filtering
+            statsFilter: 'all', // 'today', 'week', 'month', 'all'
+            chartType: 'bar', // 'bar', 'distribution'
+            
+            // UI States
+            activeResizeMenu: null // id of habit with open resize menu
         };
 
         let timerInterval = null;
+        let autoPlayInterval = null; // For Carousel
 
         // --- UTILS ---
         function getCategoryColor(str) {
@@ -572,11 +1336,18 @@
             if (duration === 0) return;
             const dateStr = getTodayString();
             
-            // Update habit streak
+            // Update habit streak AND total statistics
             state.habits = state.habits.map(h => {
                 if (h.name === name) {
                     const newStreak = h.lastLogDate === dateStr ? h.streak : h.streak + 1;
-                    return { ...h, streak: newStreak, lastLogDate: dateStr };
+                    // Beräkna total tid (om den finns, annars 0) + den nya sessionen
+                    const currentTotal = h.totalSeconds || 0;
+                    return { 
+                        ...h, 
+                        streak: newStreak, 
+                        lastLogDate: dateStr,
+                        totalSeconds: currentTotal + duration 
+                    };
                 }
                 return h;
             });
@@ -594,59 +1365,203 @@
             render();
         }
 
-        function persistUser() {
-            if (state.currentUser && USERS_DB[state.currentUser]) {
-                USERS_DB[state.currentUser].data = {
-                    habits: state.habits,
-                    history: state.history,
-                    goals: state.goals,
-                    themeId: state.currentTheme
-                };
+        async function persistUser() {
+            if (state.currentUser) {
+                try {
+                    await setDoc(doc(db, "users", state.currentUser), {
+                        habits: state.habits,
+                        history: state.history,
+                        goals: state.goals,
+                        themeId: state.currentTheme,
+                        isPremium: state.isPremium
+                    }, { merge: true });
+                } catch (e) {
+                    console.error("Error saving to Firebase: ", e);
+                }
+            }
+        }
+        
+        async function loadUserData(userId) {
+            state.isLoading = true;
+            render();
+
+            try {
+                const docRef = doc(db, "users", userId);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    state.habits = data.habits || [];
+                    state.history = data.history || [];
+                    state.goals = data.goals || [];
+                    state.currentTheme = data.themeId || 'light';
+                    state.isPremium = data.isPremium || false;
+                } else {
+                    // Ny användare i DB - Skapa tomt dokument
+                    state.habits = [];
+                    state.history = [];
+                    state.goals = [];
+                    state.currentTheme = 'light';
+                    state.isPremium = false;
+                    try {
+                        await setDoc(doc(db, "users", userId), {
+                            habits: [], history: [], goals: [], themeId: 'light', isPremium: false
+                        });
+                    } catch (writeError) {
+                         console.warn("Could not create initial doc:", writeError);
+                    }
+                }
+                applyTheme(state.currentTheme);
+            } catch (e) {
+                console.error("Error loading user data:", e);
+                // VIKTIG ÄNDRING: Ignorera permission-denied felet (alert inte)
+                // och låt användaren fortsätta "offline" (i minnet)
+                if (e.code === 'permission-denied') {
+                    console.warn("Databasåtkomst nekad. Kör i lokalt läge.");
+                    // Initiera tomma värden så appen inte kraschar
+                    state.habits = [];
+                    state.history = [];
+                    state.goals = [];
+                } else if (e.code === 'unavailable') {
+                    console.warn("Kunde inte nå servern (Unavailable). Kör offline-läge tills vidare.");
+                } else {
+                    alert("Kunde inte ladda data: " + e.message);
+                }
+            } finally {
+                state.isLoading = false;
+                render();
             }
         }
 
         // --- AUTH ---
-        function handleAuth() {
-            const username = state.authName.trim().toLowerCase();
-            const password = state.authPass.trim();
-            
-            if (!username || !password) { alert("Fyll i användarnamn och lösenord"); return; }
-
-            if (state.isSignUpMode) {
-                if (USERS_DB[username]) { alert("Användarnamnet upptaget"); return; }
-                USERS_DB[username] = {
-                    auth: { username, password, fullName: state.authFullName, age: state.authAge, email: state.authEmail },
-                    data: { habits: [], history: [], goals: [], themeId: 'light' }
-                };
+        // Listen to auth changes
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                state.currentUser = user.uid;
+                state.displayEmail = user.email;
+                state.isLoggedIn = true;
+                state.currentTab = 'tracker';
+                // Load data
+                loadUserData(user.uid);
             } else {
-                const user = USERS_DB[username];
-                if (!user || user.auth.password !== password) { alert("Fel inloggning"); return; }
+                state.currentUser = null;
+                state.isLoggedIn = false;
+                state.habits = [];
+                state.history = [];
+                state.goals = [];
+                render();
             }
-            
-            // Login success
-            const user = USERS_DB[username];
-            state.currentUser = username;
-            state.habits = user.data.habits || [];
-            state.history = user.data.history || [];
-            state.goals = user.data.goals || [];
-            state.currentTheme = user.data.themeId || 'light';
-            state.isLoggedIn = true;
-            state.currentTab = 'tracker';
-            applyTheme(state.currentTheme);
-            render();
-        }
+        });
 
-        function handleLogout() {
+        // Makes functions global for HTML onclick
+        window.handleAuth = async () => {
+            if (state.isLoading) return; 
+
+            const email = state.authEmail.trim(); 
+            const password = state.authPass.trim();
+            const loginEmail = email || (state.authName.includes('@') ? state.authName : state.authEmail);
+
+            if (!loginEmail || !password) { 
+                alert("Fyll i e-post och lösenord"); 
+                return; 
+            }
+
+            state.isLoading = true;
+            render(); 
+
+            try {
+                if (state.isSignUpMode) {
+                    const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, password);
+                    
+                    // VIKTIG ÄNDRING: Lägg databassparandet i try-catch så att tutorialen
+                    // visas även om databasen nekar åtkomst.
+                    try {
+                        // SPARA ANVÄNDARDATA TILL FIREBASE
+                        await setDoc(doc(db, "users", userCredential.user.uid), {
+                            fullName: state.authFullName,
+                            age: state.authAge,
+                            email: loginEmail,
+                            habits: [],
+                            history: [],
+                            goals: [],
+                            themeId: 'light',
+                            isPremium: false,
+                            createdAt: new Date().toISOString()
+                        });
+                    } catch (dbError) {
+                        console.warn("Kunde inte spara profil till databasen (troligen behörighet):", dbError);
+                        // Fortsätt ändå!
+                    }
+
+                    // On success, onAuthStateChanged triggers automatically
+                    // Sätt tutorial-flaggan här oavsett om DB lyckades eller ej
+                    state.showTutorial = true;
+                    state.tutorialStep = 0;
+                    state.showFabHint = false;
+                    render(); // LÖSNING: Tvinga omedelbar uppdatering av UI för att visa tutorial
+                } else {
+                    await signInWithEmailAndPassword(auth, loginEmail, password);
+                    // On success, onAuthStateChanged triggers automatically
+                }
+            } catch (error) {
+                state.isLoading = false; 
+                render();
+                
+                const errorCode = error.code;
+                const errorMessage = error.message;
+                console.error(error);
+
+                if(errorCode === 'auth/email-already-in-use') {
+                    if(confirm("Användaren finns redan. Vill du logga in istället?")) {
+                        state.isSignUpMode = false;
+                        render();
+                    }
+                }
+                else if(errorCode === 'auth/invalid-credential' || errorCode === 'auth/wrong-password' || errorCode === 'auth/user-not-found' || errorCode === 'auth/invalid-email') {
+                    alert("Felaktig e-post eller lösenord.");
+                }
+                else if(errorCode === 'auth/weak-password') {
+                    alert("Lösenordet är för svagt (minst 6 tecken).");
+                }
+                else {
+                    alert("Ett fel uppstod: " + errorMessage);
+                }
+            }
+        };
+
+        window.handleLogout = async () => {
+            try {
+                await signOut(auth);
+                state.activeSlide = 0;
+                
+                // Switch to login view
+                state.isSignUpMode = false;
+
+                // Clear fields
+                state.authName = '';
+                state.authPass = '';
+                state.authEmail = '';
+                state.authFullName = '';
+                state.authAge = '';
+
+                state.isLoading = false;
+                render();
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        window.buyPremium = () => {
+            state.isPremium = true;
+            state.showPaywall = false;
             persistUser();
-            state.isLoggedIn = false;
-            state.currentUser = null;
-            state.authName = ''; state.authPass = ''; 
-            state.habits = []; state.history = []; state.goals = [];
-            state.currentTheme = 'light';
-            applyTheme('light');
             render();
-        }
-
+            setTimeout(() => alert("Tack för ditt köp! Du har nu tillgång till obegränsat antal vanor."), 100);
+        };
+        
+        // Expose state mutators to window
+        window.state = state; 
+        
         // --- TIMER LOOP ---
         setInterval(() => {
             if (!state.isLoggedIn) return;
@@ -654,7 +1569,7 @@
             
             state.habits = state.habits.map(h => {
                 if (h.isRunning) {
-                    needsRender = true; // Simple trigger, could be optimized to direct DOM update
+                    needsRender = true; // Simple trigger
                     if (h.selectedMode === 'timer') {
                         const total = h.elapsed + 1;
                         if (total >= h.timerDuration) return { ...h, isRunning: false, elapsed: 0 };
@@ -665,11 +1580,11 @@
                 return h;
             });
 
-            // Direct DOM update optimization to avoid full re-render flickering
+            // Direct DOM update optimization
             state.habits.forEach(h => {
                 const el = document.getElementById(`timer-${h.id}`);
-                const bar = document.getElementById(`bar-${h.id}`);
                 const btn = document.getElementById(`btn-${h.id}`);
+                const icon = document.getElementById(`btn-icon-${h.id}`);
                 
                 if (h.isRunning && el) {
                     let text = formatTime(h.elapsed);
@@ -677,15 +1592,15 @@
                     el.innerText = text;
                     if (btn) {
                         btn.style.backgroundColor = '#e74c3c';
-                        btn.innerText = 'AVSLUTA';
+                        if(icon) icon.name = "stop-circle-outline";
                     }
                 }
             });
 
         }, 1000);
 
-        // --- HABIT ACTIONS ---
-        function toggleHabit(id) {
+        // --- HABIT ACTIONS (Global wrappers) ---
+        window.toggleHabit = (id) => {
             state.habits = state.habits.map(h => {
                 if (h.id === id) {
                     if (h.isRunning) {
@@ -705,7 +1620,12 @@
             render();
         }
 
-        function deleteHabit(id) {
+        window.switchMode = (id, mode) => {
+            state.habits = state.habits.map(h => h.id === id ? {...h, selectedMode: mode, elapsed:0, isRunning:false} : h);
+            render();
+        }
+
+        window.deleteHabit = (id) => {
             if(confirm("Ta bort vana?")) {
                 state.habits = state.habits.filter(h => h.id !== id);
                 state.goals = state.goals.filter(g => g.habitId !== id);
@@ -714,7 +1634,19 @@
             }
         }
 
-        function addHabit() {
+        window.toggleResizeMenu = (id) => {
+            state.activeResizeMenu = state.activeResizeMenu === id ? null : id;
+            render();
+        }
+
+        window.setHabitSize = (id, size) => {
+            state.habits = state.habits.map(h => h.id === id ? {...h, size: size} : h);
+            state.activeResizeMenu = null;
+            persistUser();
+            render();
+        }
+
+        window.addHabit = () => {
             if (!state.newHabitName) return;
             const newH = {
                 id: Date.now().toString(),
@@ -727,7 +1659,9 @@
                 elapsed: 0,
                 isRunning: false,
                 streak: 0,
-                lastLogDate: ''
+                lastLogDate: '',
+                size: 'large', // Changed from small to large
+                totalSeconds: 0 // Initialize statistics
             };
             state.habits.unshift(newH);
             state.showAddModal = false;
@@ -735,10 +1669,196 @@
             persistUser();
             render();
         }
+        
+        window.handleFabClick = () => {
+            // Check premium status logic
+            if (state.habits.length >= 1 && !state.isPremium) {
+                state.showPaywall = true;
+                render();
+            } else {
+                state.showAddModal = true; 
+                state.showFabHint = false; 
+                render();
+            }
+        }
 
-        function applyTheme(id) {
+        window.applyTheme = (id) => {
             document.body.setAttribute('data-theme', id);
         }
+
+        // --- FILTER HELPERS (From iOS App.tsx) ---
+        function getFilteredHistory() {
+            const now = Date.now();
+            const oneDay = 24 * 60 * 60 * 1000;
+            
+            return state.history.filter(item => {
+                if (state.statsFilter === 'all') return true;
+                if (state.statsFilter === 'today') {
+                    const todayStart = new Date();
+                    todayStart.setHours(0,0,0,0);
+                    return item.timestampMs >= todayStart.getTime();
+                }
+                if (state.statsFilter === 'week') return (now - item.timestampMs) < (7 * oneDay);
+                if (state.statsFilter === 'month') return (now - item.timestampMs) < (30 * oneDay);
+                return true;
+            });
+        }
+
+        function getGoalProgress(habitId, goal) {
+            const now = Date.now();
+            const oneDay = 24 * 60 * 60 * 1000;
+            
+            const filtered = state.history.filter(item => {
+                const habit = state.habits.find(h => h.id === habitId);
+                if (item.habitName !== habit?.name) return false;
+                
+                if (goal.period === 'daily') {
+                    const todayStart = new Date();
+                    todayStart.setHours(0,0,0,0);
+                    return item.timestampMs >= todayStart.getTime();
+                }
+                if (goal.period === 'weekly') return (now - item.timestampMs) < (7 * oneDay);
+                if (goal.period === 'monthly') return (now - item.timestampMs) < (30 * oneDay);
+                if (goal.period === 'custom' && goal.startDate && goal.endDate) {
+                    const start = new Date(goal.startDate).getTime();
+                    const end = new Date(goal.endDate).getTime() + oneDay; 
+                    return item.timestampMs >= start && item.timestampMs < end;
+                }
+                return false;
+            });
+            
+            const total = filtered.reduce((acc, curr) => acc + curr.duration, 0);
+            return Math.floor(total / 60);
+        }
+
+        // --- CAROUSEL LOGIC ---
+        function startAutoPlay() {
+            stopAutoPlay();
+            autoPlayInterval = setInterval(() => {
+                const container = document.querySelector('.carousel-container');
+                if (container) {
+                    let nextSlide = state.activeSlide + 1;
+                    if (nextSlide >= ONBOARDING_SLIDES.length) nextSlide = 0;
+                    scrollToSlide(nextSlide);
+                }
+            }, 1500); // 1.5 seconds per slide
+        }
+
+        function stopAutoPlay() {
+            if (autoPlayInterval) clearInterval(autoPlayInterval);
+        }
+
+        function scrollToSlide(index) {
+            state.activeSlide = index;
+            const container = document.querySelector('.carousel-container');
+            if(container) {
+                // Smooth scroll via JS, manual behavior to avoid lag
+                container.scrollTo({
+                    left: index * container.offsetWidth,
+                    behavior: 'smooth'
+                });
+            }
+            // Update UI elements that depend on active slide (dots, borders)
+            updateCarouselUI();
+        }
+
+        function updateCarouselUI() {
+            // Update Dots
+            document.querySelectorAll('.dot').forEach((d, i) => {
+                d.classList.toggle('active', i === state.activeSlide);
+            });
+            
+            // Update Form Borders and Button
+            const activeColor = ONBOARDING_SLIDES[state.activeSlide].color;
+            document.querySelectorAll('.input-field').forEach(inp => inp.style.borderColor = activeColor);
+            const btn = document.querySelector('.start-btn-small.signup-btn');
+            if(btn) {
+                btn.style.backgroundColor = activeColor;
+                // Keep loading opacity if loading
+                if(state.isLoading) btn.style.opacity = '0.7';
+                else btn.style.opacity = '1';
+            }
+        }
+
+        function initCarouselListeners() {
+            const slider = document.querySelector('.carousel-container');
+            if(!slider) return;
+
+            let isDown = false;
+            let startX;
+            let scrollLeft;
+
+            // Mouse Drag
+            slider.addEventListener('mousedown', (e) => {
+                isDown = true;
+                slider.classList.add('active'); // Change cursor
+                startX = e.pageX - slider.offsetLeft;
+                scrollLeft = slider.scrollLeft;
+                stopAutoPlay(); // Pause on interaction
+            });
+
+            slider.addEventListener('mouseleave', () => {
+                isDown = false;
+                slider.classList.remove('active');
+                startAutoPlay(); // Resume
+            });
+
+            slider.addEventListener('mouseup', () => {
+                isDown = false;
+                slider.classList.remove('active');
+                // Snap to nearest
+                const index = Math.round(slider.scrollLeft / slider.offsetWidth);
+                scrollToSlide(index);
+                startAutoPlay(); // Resume
+            });
+
+            slider.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - slider.offsetLeft;
+                const walk = (x - startX) * 2; // scroll-fast
+                slider.scrollLeft = scrollLeft - walk;
+            });
+
+            // Touch Drag (Pausing)
+            slider.addEventListener('touchstart', stopAutoPlay);
+            slider.addEventListener('touchend', startAutoPlay);
+
+            // Manual Scroll Check (for trackpads/touch)
+            let scrollTimeout;
+            slider.addEventListener('scroll', () => {
+                if(!isDown) { // Only update if not currently being dragged by mouse
+                    clearTimeout(scrollTimeout);
+                    scrollTimeout = setTimeout(() => {
+                        const index = Math.round(slider.scrollLeft / slider.offsetWidth);
+                        if (index !== state.activeSlide) {
+                            state.activeSlide = index;
+                            updateCarouselUI();
+                        }
+                    }, 50);
+                }
+            });
+        }
+        
+        // Keyboard navigation for carousel
+        document.addEventListener('keydown', (e) => {
+            if (!state.isLoggedIn && !state.showAddModal && !state.showManualModal && !state.showGoalModal) {
+                if (e.key === 'ArrowRight') {
+                    stopAutoPlay();
+                    let next = state.activeSlide + 1;
+                    if (next >= ONBOARDING_SLIDES.length) next = 0;
+                    scrollToSlide(next);
+                    startAutoPlay();
+                } else if (e.key === 'ArrowLeft') {
+                    stopAutoPlay();
+                    let prev = state.activeSlide - 1;
+                    if (prev < 0) prev = ONBOARDING_SLIDES.length - 1;
+                    scrollToSlide(prev);
+                    startAutoPlay();
+                }
+            }
+        });
+
 
         // --- RENDER FUNCTIONS ---
 
@@ -765,14 +1885,24 @@
             const extraFields = state.isSignUpMode ? `
                 <input type="text" class="input-field" placeholder="För- & Efternamn" oninput="state.authFullName=this.value" value="${state.authFullName}" style="border-color:${activeColor}">
                 <input type="number" class="input-field" placeholder="Ålder" oninput="state.authAge=this.value" value="${state.authAge}" style="border-color:${activeColor}">
-                <input type="email" class="input-field" placeholder="E-post" oninput="state.authEmail=this.value" value="${state.authEmail}" style="border-color:${activeColor}">
             ` : '';
+
+            // Ensure carousel initializes after render
+            setTimeout(() => {
+                initCarouselListeners();
+                startAutoPlay();
+            }, 0);
+
+            const btnText = state.isLoading ? 'Laddar...' : (state.isSignUpMode ? 'Börja Nu' : 'Logga In');
+            const btnOpacity = state.isLoading ? '0.7' : '1';
+            const pointerEvents = state.isLoading ? 'none' : 'auto';
 
             return `
                 <div id="signup-view">
-                    <h1 style="color:var(--text-primary); margin-bottom:15px">Habit & Focus</h1>
+                    <div class="signup-bg"></div>
+                    <h1 style="color:var(--text-primary); margin-bottom:15px; position:relative; z-index:1">Habit & Focus</h1>
                     <div class="signup-card">
-                        <div class="carousel-container" onscroll="handleScroll(this)">
+                        <div class="carousel-container">
                             ${slidesHtml}
                         </div>
                         <div class="pagination">
@@ -781,13 +1911,15 @@
                         <div class="form-section">
                             <h3 style="text-align:center; margin-bottom:15px">${state.isSignUpMode ? 'Skapa konto' : 'Välkommen tillbaka'}</h3>
                             ${extraFields}
-                            <input type="text" class="input-field" placeholder="Användarnamn" oninput="state.authName=this.value" value="${state.authName}" style="border-color:${activeColor}">
+                            <input type="email" class="input-field" placeholder="E-post (Login)" oninput="state.authEmail=this.value; state.authName=this.value" value="${state.authEmail}" style="border-color:${activeColor}">
                             <input type="password" class="input-field" placeholder="Lösenord" oninput="state.authPass=this.value" value="${state.authPass}" style="border-color:${activeColor}">
                             
-                            <div class="action-btn" style="background-color: ${activeColor}" onclick="handleAuth()">
-                                ${state.isSignUpMode ? 'Börja Nu' : 'Logga In'}
+                            <div class="start-btn-small signup-btn" 
+                                 style="background-color: ${activeColor}; font-size:16px; padding: 12px 0; opacity: ${btnOpacity}; pointer-events: ${pointerEvents}" 
+                                 onclick="handleAuth()">
+                                ${btnText}
                             </div>
-                            <div class="toggle-link" onclick="state.isSignUpMode=!state.isSignUpMode; render()">
+                            <div class="toggle-link" onclick="if(!state.isLoading) { state.isSignUpMode=!state.isSignUpMode; render(); }">
                                 ${state.isSignUpMode ? 'Har du redan ett konto? <b>Logga in</b>' : 'Ny här? <b>Skapa konto</b>'}
                             </div>
                         </div>
@@ -796,27 +1928,10 @@
             `;
         }
 
-        function handleScroll(el) {
-            const index = Math.round(el.scrollLeft / el.offsetWidth);
-            if (index !== state.activeSlide) {
-                state.activeSlide = index;
-                render(); // Re-render to update colors
-                // Preserve scroll position (simple hack: normally we'd diff DOM, here we might jump)
-                // To fix jumpiness in this simple implementation, we rely on the fact that standard render is fast.
-                // But specifically for scroll, let's just update styles dynamically to avoid re-rendering whole HTML.
-                // For this single-file demo, full re-render is safer for logic correctness.
-                // We'll set the scroll back after render.
-                requestAnimationFrame(() => {
-                    const newEl = document.querySelector('.carousel-container');
-                    if(newEl) newEl.scrollLeft = index * newEl.offsetWidth;
-                });
-            }
-        }
-
         function renderTracker() {
             if (state.habits.length === 0) return `<div style="text-align:center; margin-top:50px; color:var(--text-secondary)">Inga vanor än. Tryck på +</div>`;
             
-            return state.habits.map(h => {
+            const cardsHtml = state.habits.map(h => {
                 const isTimer = h.selectedMode === 'timer';
                 let displayTime = formatTime(h.elapsed);
                 if (isTimer && !h.isRunning) displayTime = "";
@@ -824,121 +1939,187 @@
 
                 const cardBg = tintColor(h.color, 0.9, state.currentTheme);
                 const catColor = h.category ? getCategoryColor(h.category) : '#ccc';
+                
+                // Determine size class
+                const sizeClass = h.size === 'medium' ? 'size-medium' : h.size === 'large' ? 'size-large' : h.size === 'xxl' ? 'size-xxl' : 'size-small';
 
                 return `
-                <div class="card" style="background-color: ${cardBg}">
-                    <div class="card-header">
+                <div class="square-card ${sizeClass}" style="background-color: ${cardBg}" data-id="${h.id}">
+                    <div class="card-top">
                         <div>
                             <div class="habit-title" style="color: ${h.color}">${h.name}</div>
                             ${h.category ? `<div class="category-tag" style="background-color: ${catColor}">${h.category}</div>` : ''}
-                            <div class="streak-info">
-                                <ion-icon name="flame" style="color: ${h.streak > 0 ? '#e67e22':'#aaa'}; margin-right:4px"></ion-icon>
-                                ${h.streak} dagar
-                            </div>
                         </div>
-                        <ion-icon name="trash-outline" style="font-size:20px; color:var(--text-secondary); cursor:pointer" onclick="deleteHabit('${h.id}')"></ion-icon>
+                        <div style="display:flex; gap:4px">
+                             <div class="mode-icon" onclick="toggleResizeMenu('${h.id}')">
+                                <ion-icon name="resize-outline" style="color:var(--text-secondary)"></ion-icon>
+                             </div>
+                             <div class="mode-icon" onclick="switchMode('${h.id}', '${h.selectedMode === 'stopwatch' ? 'timer' : 'stopwatch'}')">
+                                <ion-icon name="${isTimer ? 'hourglass' : 'stopwatch'}" style="color:${h.color}"></ion-icon>
+                             </div>
+                             <div class="mode-icon" onclick="deleteHabit('${h.id}')">
+                                <ion-icon name="trash-outline" style="color:var(--text-secondary)"></ion-icon>
+                             </div>
+                        </div>
+                        
+                        <!-- Resize Menu -->
+                        ${state.activeResizeMenu === h.id ? `
+                            <div class="resize-menu">
+                                <div class="size-btn" onclick="setHabitSize('${h.id}', 'small')">S</div>
+                                <div class="size-btn" onclick="setHabitSize('${h.id}', 'medium')">M</div>
+                                <div class="size-btn" onclick="setHabitSize('${h.id}', 'large')">L</div>
+                                <div class="size-btn" onclick="setHabitSize('${h.id}', 'xxl')">XXL</div>
+                            </div>
+                        ` : ''}
                     </div>
 
-                    <div class="mode-switcher">
-                        <div class="mode-tab" style="${!isTimer ? `background-color:${h.color}; color:#fff` : ''}" 
-                             onclick="updateHabit('${h.id}', {selectedMode: 'stopwatch', elapsed:0, isRunning:false})">Tidtagarur</div>
-                        <div class="mode-tab" style="${isTimer ? `background-color:${h.color}; color:#fff` : ''}" 
-                             onclick="updateHabit('${h.id}', {selectedMode: 'timer', elapsed:0, isRunning:false})">Timer</div>
-                    </div>
-
-                    <div style="text-align:center">
+                    <div class="card-middle">
                         ${isTimer && !h.isRunning ? `
-                            <div class="timer-controls">
-                                <div class="arrow-btn" style="border-color:${h.color}; color:${h.color}" 
-                                     onclick="updateHabit('${h.id}', {timerInput: Math.max(1, parseInt('${h.timerInput}')-1)})"><ion-icon name="chevron-down"></ion-icon></div>
-                                <div>
-                                    <div style="font-size:30px; font-weight:bold; color:${h.color}">${h.timerInput}</div>
-                                    <div style="color:var(--text-secondary); font-size:12px">min</div>
+                            <div style="display:flex; align-items:center; gap:5px">
+                                <ion-icon name="chevron-down" onclick="updateHabit('${h.id}', {timerInput: Math.max(1, parseInt('${h.timerInput}')-1)})" style="cursor:pointer; color:${h.color}"></ion-icon>
+                                <div style="text-align:center">
+                                    <div style="font-size:20px; font-weight:bold; color:${h.color}">${h.timerInput}</div>
+                                    <div style="font-size:10px; color:var(--text-secondary)">min</div>
                                 </div>
-                                <div class="arrow-btn" style="border-color:${h.color}; color:${h.color}" 
-                                     onclick="updateHabit('${h.id}', {timerInput: parseInt('${h.timerInput}')+1})"><ion-icon name="chevron-up"></ion-icon></div>
+                                <ion-icon name="chevron-up" onclick="updateHabit('${h.id}', {timerInput: parseInt('${h.timerInput}')+1})" style="cursor:pointer; color:${h.color}"></ion-icon>
                             </div>
                         ` : `
-                            <div id="timer-${h.id}" class="timer-display" style="color:var(--text-primary)">${displayTime}</div>
+                            <div id="timer-${h.id}" class="timer-display-small" style="color:var(--text-primary)">
+                                ${displayTime || (isTimer ? (h.timerInput + ':00') : '0:00')}
+                            </div>
                         `}
+                         <div class="manual-link" onclick="openManualModal('${h.id}', '${h.name}')">Logga manuellt</div>
                     </div>
 
-                    <div id="btn-${h.id}" class="action-btn" 
-                         style="background-color: ${h.isRunning ? '#e74c3c' : h.color}" 
-                         onclick="toggleHabit('${h.id}')">
-                        ${h.isRunning ? 'AVSLUTA' : 'STARTA'}
+                    <div class="card-bottom">
+                         <div id="btn-${h.id}" class="start-btn-small" 
+                             style="background-color: ${h.isRunning ? '#e74c3c' : h.color}; display:flex; justify-content:center; align-items:center; gap:5px" 
+                             onclick="toggleHabit('${h.id}')">
+                             <ion-icon id="btn-icon-${h.id}" name="${h.isRunning ? 'stop-circle-outline' : 'play-circle-outline'}" style="font-size:18px; margin-right:5px"></ion-icon>
+                            ${h.isRunning ? 'AVSLUTA' : 'STARTA'}
+                        </div>
                     </div>
-
-                    ${!h.isRunning ? `<div class="manual-link" onclick="openManualModal('${h.id}', '${h.name}')">Logga manuellt</div>` : ''}
                 </div>
                 `;
             }).join('');
+            
+            return `<div id="habit-list">${cardsHtml}</div>`;
         }
 
         function renderStats() {
-            // Simple aggregation
+            const filteredHistory = getFilteredHistory();
             const stats = {};
-            state.history.forEach(item => {
+            let grandTotal = 0;
+
+            filteredHistory.forEach(item => {
                 if (!stats[item.habitName]) stats[item.habitName] = { sec: 0, color: item.color };
                 stats[item.habitName].sec += item.duration;
+                grandTotal += item.duration;
             });
+
             const data = Object.keys(stats).map(k => ({ name: k, sec: stats[k].sec, color: stats[k].color })).sort((a,b) => b.sec - a.sec);
             const max = data.length ? data[0].sec : 1;
 
             return `
+              <div class="content-container">
                 <h3 style="margin-bottom:10px">Statistik</h3>
-                <div class="card">
-                    ${data.length === 0 ? '<div style="text-align:center; padding:20px; color:var(--text-secondary)">Ingen data än.</div>' : ''}
-                    ${data.map(d => `
-                        <div class="bar-container">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:5px">
-                                <strong>${d.name}</strong>
-                                <span style="font-size:12px">${formatTime(d.sec)}</span>
-                            </div>
-                            <div class="bar-bg">
-                                <div class="bar-fill" style="width: ${Math.max(2, (d.sec / max) * 100)}%; background-color: ${d.color}"></div>
-                            </div>
-                        </div>
-                    `).join('')}
+                
+                <!-- Filters -->
+                <div class="filter-container">
+                    ${['today','week','month','all'].map(f => 
+                        `<div class="filter-btn ${state.statsFilter===f?'active':''}" 
+                              onclick="state.statsFilter='${f}'; render()">
+                              ${f==='today'?'Idag':f==='week'?'Vecka':f==='month'?'Månad':'Alla'}
+                         </div>`
+                    ).join('')}
                 </div>
+
+                <div class="card">
+                    <div class="chart-header">
+                        <span>${state.chartType === 'bar' ? 'Stapeldiagram' : 'Cirkeldiagram'}</span>
+                        <div>
+                            <ion-icon name="bar-chart" class="chart-toggle-icon ${state.chartType==='bar'?'active':''}" onclick="state.chartType='bar'; render()"></ion-icon>
+                            <ion-icon name="pie-chart" class="chart-toggle-icon ${state.chartType==='distribution'?'active':''}" onclick="state.chartType='distribution'; render()"></ion-icon>
+                        </div>
+                    </div>
+
+                    ${data.length === 0 ? '<div style="text-align:center; padding:20px; color:var(--text-secondary)">Ingen data för denna period.</div>' : ''}
+                    
+                    ${state.chartType === 'bar' ? 
+                        data.map(d => `
+                            <div class="bar-container">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:5px">
+                                    <strong>${d.name}</strong>
+                                    <span style="font-size:12px">${formatTime(d.sec)}</span>
+                                </div>
+                                <div class="bar-bg">
+                                    <div class="bar-fill" style="width: ${Math.max(2, (d.sec / max) * 100)}%; background-color: ${d.color}"></div>
+                                </div>
+                            </div>
+                        `).join('')
+                    : 
+                       `<div>
+                            <div style="margin-bottom:15px; font-weight:bold; text-align:center">Totalt: ${formatTime(grandTotal)}</div>
+                            <div style="display:flex; height:30px; border-radius:15px; overflow:hidden; width:100%; margin-bottom:15px">
+                                ${data.map(d => `<div style="width:${(d.sec/grandTotal)*100}%; background-color:${d.color}"></div>`).join('')}
+                            </div>
+                            <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center">
+                                ${data.map(d => `
+                                    <div style="display:flex; align-items:center; font-size:12px">
+                                        <div style="width:10px; height:10px; background-color:${d.color}; border-radius:50%; margin-right:5px"></div>
+                                        ${d.name} (${Math.round((d.sec/grandTotal)*100)}%)
+                                    </div>
+                                `).join('')}
+                            </div>
+                       </div>`
+                    }
+                </div>
+              </div>
             `;
         }
 
         function renderGoals() {
              if (state.habits.length === 0) return `<div style="text-align:center; margin-top:50px; color:var(--text-secondary)">Inga vanor än.</div>`;
              
-             return state.habits.map(h => {
+             const goalsHtml = state.habits.map(h => {
                  const goal = state.goals.find(g => g.habitId === h.id);
-                 let progress = 0;
-                 // Mock calculation for display simplicity
-                 if(goal) {
-                     const historyItems = state.history.filter(i => i.habitName === h.name);
-                     const total = historyItems.reduce((acc, c) => acc + c.duration, 0);
-                     progress = Math.floor(total / 60);
-                 }
+                 const progress = goal ? getGoalProgress(h.id, goal) : 0;
                  const target = goal ? goal.targetMinutes : 1;
                  const pct = Math.min(1, progress / target);
                  const barColor = pct < 0.33 ? '#e74c3c' : pct < 0.66 ? '#e67e22' : '#2ecc71';
+                 
+                 let periodText = 'dag';
+                 if (goal) {
+                     if (goal.period === 'weekly') periodText = 'vecka';
+                     if (goal.period === 'monthly') periodText = 'månad';
+                     if (goal.period === 'custom') periodText = `${goal.startDate} - ${goal.endDate}`;
+                 }
 
                  return `
                     <div class="card" style="background-color: ${tintColor(h.color, 0.9, state.currentTheme)}">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
-                            <div class="habit-title" style="color:${h.color}; font-size:18px">${h.name}</div>
+                            <div>
+                                <div class="habit-title" style="color:${h.color}; font-size:18px; max-width:none">${h.name}</div>
+                                ${h.category ? `<div style="font-size:10px; color:var(--text-secondary)">${h.category}</div>` : ''}
+                            </div>
                             <div style="background-color:${h.color}; color:white; padding:5px 10px; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer"
                                  onclick="openGoalModal('${h.id}')">${goal ? 'Ändra' : 'Sätt Mål'}</div>
                         </div>
                         ${goal ? `
-                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:5px">Mål: ${goal.targetMinutes} min / ${goal.period}</div>
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:5px">Mål: ${goal.targetMinutes} min / ${periodText}</div>
                             <div class="bar-bg"><div class="bar-fill" style="width:${pct*100}%; background-color:${barColor}"></div></div>
                             <div style="text-align:right; font-size:12px; margin-top:5px; font-weight:bold">${progress} min (${Math.round(pct*100)}%)</div>
                         ` : ''}
                     </div>
                  `;
              }).join('');
+             
+             return `<div class="content-container">${goalsHtml}</div>`;
         }
 
         function renderSettings() {
             return `
+              <div class="content-container">
                 <h3>Tema</h3>
                 ${THEMES.map(t => `
                     <div class="card" style="display:flex; align-items:center; cursor:pointer; border: ${state.currentTheme === t.id ? '2px solid var(--text-primary)' : '1px solid transparent'}"
@@ -952,9 +2133,101 @@
                 <h3 style="margin-top:20px">Konto</h3>
                 <div class="card">
                     <div style="font-size:12px; text-transform:uppercase; color:var(--text-secondary)">Inloggad som</div>
-                    <div style="font-size:16px; font-weight:bold">${state.currentUser}</div>
+                    <div style="font-size:16px; font-weight:bold">${state.displayEmail || state.currentUser}</div>
+                    ${state.isPremium ? '<div style="margin-top:5px; color:#f1c40f; font-weight:bold; font-size:12px"><ion-icon name="star"></ion-icon> Premium Medlem</div>' : '<div style="margin-top:5px; color:var(--text-secondary); font-size:12px">Gratiskonto (Begränsat)</div>'}
                 </div>
-                <div class="action-btn" style="background-color:#e74c3c" onclick="handleLogout()">Logga Ut</div>
+                <div class="start-btn-small" style="background-color:#e74c3c; font-size:16px" onclick="handleLogout()">Logga Ut</div>
+              </div>
+            `;
+        }
+        
+        // --- TUTORIAL FUNCTIONS ---
+        window.nextTutorialStep = () => {
+            if (state.tutorialStep < TUTORIAL_STEPS.length - 1) {
+                state.tutorialStep++;
+                render();
+            } else {
+                state.showTutorial = false;
+                // Show hint if no habits exist yet (fresh user)
+                if (state.habits.length === 0) {
+                    state.showFabHint = true;
+                }
+                render();
+            }
+        }
+        
+        window.prevTutorialStep = () => {
+            if (state.tutorialStep > 0) {
+                state.tutorialStep--;
+                render();
+            }
+        }
+        
+        window.closeTutorial = () => {
+            state.showTutorial = false;
+            // Show hint if no habits exist yet
+            if (state.habits.length === 0) {
+                state.showFabHint = true;
+            }
+            render();
+        }
+
+        function renderTutorial() {
+            const step = TUTORIAL_STEPS[state.tutorialStep];
+            const isLast = state.tutorialStep === TUTORIAL_STEPS.length - 1;
+            const hasPrev = state.tutorialStep > 0;
+            
+            return `
+                <div class="tutorial-overlay">
+                    <div class="tutorial-card">
+                        <div class="anim-stage">
+                            ${step.scene}
+                        </div>
+                        <h2 style="color:var(--text-primary); margin-bottom:10px">${step.title}</h2>
+                        <p style="color:var(--text-secondary); margin-bottom:20px; line-height:1.4">${step.desc}</p>
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%">
+                            <div style="width:30px">
+                                ${hasPrev ? `<div style="font-size:24px; cursor:pointer; color:var(--text-secondary)" onclick="prevTutorialStep()">←</div>` : ''}
+                            </div>
+                            
+                            <div style="display:flex; align-items:center; gap:10px">
+                                <div class="tut-btn-sec" onclick="closeTutorial()">Hoppa över</div>
+                                <div class="tut-btn-primary" onclick="nextTutorialStep()">${isLast ? 'Klar' : 'Nästa'}</div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top:15px; display:flex; gap:5px; justify-content:center">
+                             ${TUTORIAL_STEPS.map((_,i) => `<div style="width:6px; height:6px; border-radius:3px; background-color:${i===state.tutorialStep ? 'var(--text-primary)' : '#ccc'}"></div>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // --- PAYWALL RENDERER ---
+        function renderPaywall() {
+             return `
+                <div class="tutorial-overlay">
+                    <div class="tutorial-card" style="border: 2px solid #f1c40f">
+                        <div class="paywall-stage">
+                            <ion-icon name="lock-closed"></ion-icon>
+                        </div>
+                        <h2 style="color:var(--text-primary); margin-bottom:10px">Lås upp Obegränsat</h2>
+                        <p style="color:var(--text-secondary); margin-bottom:20px; line-height:1.4">
+                            Du kan bara skapa 1 vana i gratisversionen. Lås upp obegränsat antal vanor för alltid.
+                        </p>
+                        
+                        <div style="background-color:rgba(241, 196, 15, 0.1); padding:10px; border-radius:10px; margin-bottom:20px; color:#d35400; font-weight:bold">
+                            Endast 10 kr (Engångsbelopp)
+                        </div>
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%">
+                             <div class="tut-btn-sec" onclick="state.showPaywall=false; render()">Avbryt</div>
+                             <div class="tut-btn-primary" style="background-color:#f1c40f; color:black" onclick="buyPremium()">Betala 10 kr</div>
+                        </div>
+                    </div>
+                </div>
             `;
         }
 
@@ -989,7 +2262,7 @@
                         <input type="number" class="input-field" placeholder="Minuter" value="${state.manualMinutes}" oninput="state.manualMinutes=this.value">
                          <div class="modal-btns">
                             <div style="color:var(--text-secondary); cursor:pointer" onclick="state.showManualModal=false; render()">Avbryt</div>
-                            <div style="color:var(--text-primary); font-weight:bold; cursor:pointer" onclick="saveManual()">Spara</div>
+                            <div style="color:var(--text-primary); font-weight:bold; cursor:pointer" onclick="window.saveManual()">Spara</div>
                         </div>
                     </div>
                 </div>
@@ -997,16 +2270,32 @@
                  <div class="modal-overlay ${state.showGoalModal ? 'open' : ''}">
                     <div class="modal-content">
                         <h3>Sätt Mål</h3>
-                         <div style="display:flex; margin-bottom:10px; gap:5px">
-                            ${['daily','weekly','monthly'].map(p => `
-                                <div style="flex:1; padding:5px; text-align:center; border-radius:5px; font-size:12px; cursor:pointer; background-color:${state.goalPeriod===p?'rgba(0,0,0,0.1)':'transparent'}"
-                                     onclick="state.goalPeriod='${p}'; render()">${p==='daily'?'Dag':p==='weekly'?'Vecka':'Månad'}</div>
+                         <div class="period-selector">
+                            ${['daily','weekly','monthly', 'custom'].map(p => `
+                                <div class="period-btn ${state.goalPeriod===p ? 'active' : ''}"
+                                     onclick="state.goalPeriod='${p}'; render()">
+                                     ${p==='daily'?'Dag':p==='weekly'?'Vecka':p==='monthly'?'Månad':'Period'}
+                                </div>
                             `).join('')}
                         </div>
+                        
+                        ${state.goalPeriod === 'custom' ? `
+                            <div style="display:flex; gap:10px; margin-bottom:10px">
+                                <div style="flex:1">
+                                    <label style="font-size:10px; color:var(--text-secondary)">Start</label>
+                                    <input type="text" class="input-field" placeholder="YYYY-MM-DD" value="${state.goalStart}" oninput="state.goalStart=this.value">
+                                </div>
+                                <div style="flex:1">
+                                    <label style="font-size:10px; color:var(--text-secondary)">Slut</label>
+                                    <input type="text" class="input-field" placeholder="YYYY-MM-DD" value="${state.goalEnd}" oninput="state.goalEnd=this.value">
+                                </div>
+                            </div>
+                        ` : ''}
+
                         <input type="number" class="input-field" placeholder="Mål (minuter)" value="${state.goalTarget}" oninput="state.goalTarget=this.value">
                          <div class="modal-btns">
                             <div style="color:var(--text-secondary); cursor:pointer" onclick="state.showGoalModal=false; render()">Avbryt</div>
-                            <div style="color:var(--text-primary); font-weight:bold; cursor:pointer" onclick="saveGoal()">Spara</div>
+                            <div style="color:var(--text-primary); font-weight:bold; cursor:pointer" onclick="window.saveGoal()">Spara</div>
                         </div>
                     </div>
                 </div>
@@ -1014,12 +2303,12 @@
         }
 
         // --- HELPERS FOR INTERACTION ---
-        function updateHabit(id, fields) {
+        window.updateHabit = (id, fields) => {
             state.habits = state.habits.map(h => h.id === id ? {...h, ...fields} : h);
             render();
         }
 
-        function openManualModal(id, name) {
+        window.openManualModal = (id, name) => {
             state.manualHabitId = id;
             state.manualDate = getTodayString();
             state.manualMinutes = '';
@@ -1027,7 +2316,7 @@
             render();
         }
 
-        function saveManual() {
+        window.saveManual = () => {
             const h = state.habits.find(h => h.id === state.manualHabitId);
             if(h && state.manualMinutes) {
                 saveSession(h.name, parseInt(state.manualMinutes)*60, 'manual', h.color);
@@ -1035,22 +2324,26 @@
             }
         }
 
-        function openGoalModal(id) {
+        window.openGoalModal = (id) => {
             state.goalHabitId = id;
             const g = state.goals.find(x => x.habitId === id);
             state.goalTarget = g ? g.targetMinutes : '';
             state.goalPeriod = g ? g.period : 'daily';
+            state.goalStart = g ? g.startDate : getTodayString();
+            state.goalEnd = g ? g.endDate : getTodayString();
             state.showGoalModal = true;
             render();
         }
 
-        function saveGoal() {
+        window.saveGoal = () => {
             if(!state.goalHabitId || !state.goalTarget) return;
             state.goals = state.goals.filter(g => g.habitId !== state.goalHabitId);
             state.goals.push({
                 habitId: state.goalHabitId,
                 targetMinutes: parseInt(state.goalTarget),
-                period: state.goalPeriod
+                period: state.goalPeriod,
+                startDate: state.goalStart,
+                endDate: state.goalEnd
             });
             state.showGoalModal = false;
             persistUser();
@@ -1058,7 +2351,7 @@
         }
 
         // --- MAIN RENDER ---
-        function render() {
+        window.render = () => {
             const app = document.getElementById('app');
             
             if (!state.isLoggedIn) {
@@ -1066,8 +2359,12 @@
                 return;
             }
 
-            app.innerHTML = `
-                <div class="header">${state.currentTab === 'tracker' ? 'Min Habit Tracker' : state.currentTab === 'stats' ? 'Statistik' : state.currentTab === 'goals' ? 'Mål' : 'Inställningar'}</div>
+            const html = `
+                <div class="header">
+                    <div class="header-spacer"></div>
+                    <div>${state.currentTab === 'tracker' ? 'Min Habit Tracker' : state.currentTab === 'stats' ? 'Statistik' : state.currentTab === 'goals' ? 'Mål' : 'Inställningar'}</div>
+                    <div class="header-help-btn" onclick="state.showTutorial=true; state.tutorialStep=0; render()">?</div>
+                </div>
                 
                 <div class="scroll-view">
                     ${state.currentTab === 'tracker' ? renderTracker() : ''}
@@ -1076,29 +2373,74 @@
                     ${state.currentTab === 'settings' ? renderSettings() : ''}
                 </div>
 
-                ${state.currentTab === 'tracker' ? '<div class="fab" onclick="state.showAddModal=true; render()"><ion-icon name="add"></ion-icon></div>' : ''}
+                ${state.currentTab === 'tracker' ? `
+                    <div class="fab" onclick="handleFabClick()">
+                        <ion-icon name="add"></ion-icon>
+                    </div>
+                    ${state.showFabHint ? `
+                        <div class="fab-hint-arrow">
+                            <svg viewBox="0 0 300 300">
+                              <!-- Improved hand-drawn style curved arrow -->
+                              <path d="M 60,60 C 180,60 220,100 240,240" fill="none" />
+                              <path d="M 215,215 L 240,240 L 265,210" fill="none" />
+                            </svg>
+                        </div>
+                    ` : ''}
+                ` : ''}
 
                 <div class="tab-bar">
-                    <div class="tab-item ${state.currentTab==='tracker'?'active':''}" onclick="state.currentTab='tracker'; render()">
-                        <ion-icon name="list-outline" style="font-size:24px"></ion-icon>
+                    <div class="tab-item tab-tracker ${state.currentTab==='tracker'?'active':''}" onclick="state.currentTab='tracker'; render()">
+                        <ion-icon name="list-outline"></ion-icon>
                         <span class="tab-text">Spåra</span>
                     </div>
-                    <div class="tab-item ${state.currentTab==='stats'?'active':''}" onclick="state.currentTab='stats'; render()">
-                        <ion-icon name="pie-chart-outline" style="font-size:24px"></ion-icon>
+                    <div class="tab-item tab-stats ${state.currentTab==='stats'?'active':''}" onclick="state.currentTab='stats'; render()">
+                        <ion-icon name="pie-chart-outline"></ion-icon>
                         <span class="tab-text">Statistik</span>
                     </div>
-                    <div class="tab-item ${state.currentTab==='goals'?'active':''}" onclick="state.currentTab='goals'; render()">
-                        <ion-icon name="trophy-outline" style="font-size:24px"></ion-icon>
+                    <div class="tab-item tab-goals ${state.currentTab==='goals'?'active':''}" onclick="state.currentTab='goals'; render()">
+                        <ion-icon name="trophy-outline"></ion-icon>
                         <span class="tab-text">Mål</span>
                     </div>
-                    <div class="tab-item ${state.currentTab==='settings'?'active':''}" onclick="state.currentTab='settings'; render()">
-                        <ion-icon name="settings-outline" style="font-size:24px"></ion-icon>
+                    <div class="tab-item tab-settings ${state.currentTab==='settings'?'active':''}" onclick="state.currentTab='settings'; render()">
+                        <ion-icon name="settings-outline"></ion-icon>
                         <span class="tab-text">Inställningar</span>
                     </div>
                 </div>
 
                 ${renderModals()}
+                ${state.showTutorial ? renderTutorial() : ''}
+                ${state.showPaywall ? renderPaywall() : ''}
             `;
+            
+            app.innerHTML = html;
+
+            // Initialize SortableJS for Drag and Drop with optimized speed
+            if (state.currentTab === 'tracker' && document.getElementById('habit-list')) {
+                const listEl = document.getElementById('habit-list');
+                Sortable.create(listEl, {
+                    animation: 350, // Slower animation for liquid feel
+                    swapThreshold: 0.65, 
+                    delay: 0, // Instant pickup (was 50)
+                    delayOnTouchOnly: false,
+                    handle: '.square-card',
+                    ghostClass: 'sortable-ghost',
+                    dragClass: 'sortable-drag',
+                    easing: "cubic-bezier(0.2, 0, 0, 1)", 
+                    forceFallback: true, 
+                    fallbackOnBody: true, 
+                    filter: '.start-btn-small, .mode-icon, .manual-link, ion-icon, .resize-menu, .size-btn',
+                    preventOnFilter: false,
+                    onEnd: function (evt) {
+                        const oldIndex = evt.oldIndex;
+                        const newIndex = evt.newIndex;
+                        if (oldIndex !== newIndex) {
+                            const movedItem = state.habits.splice(oldIndex, 1)[0];
+                            state.habits.splice(newIndex, 0, movedItem);
+                            persistUser();
+                        }
+                    },
+                });
+            }
         }
 
         // Init

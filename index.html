@@ -1158,14 +1158,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // LÖSNING: Logga ut användaren direkt vid start för att förhindra automatisk inloggning
-        // om en session ligger kvar i webbläsaren.
-        signOut(auth).then(() => {
-            console.log("Session rensad vid start.");
-        }).catch((error) => {
-            console.error("Fel vid rensning av session:", error);
-        });
-
         // --- CONSTANTS & DATA ---
         const COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#1abc9c', '#34495e'];
         
